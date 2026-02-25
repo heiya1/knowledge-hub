@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/react';
 import { useTranslation } from 'react-i18next';
 import { MarkdownEditor } from './MarkdownEditor';
 import { EditorToolbar } from './EditorToolbar';
+import { RemoteChangeBanner } from './RemoteChangeBanner';
 import { Breadcrumb } from '../common/Breadcrumb';
 import { GitStatusBar } from '../git/GitStatusBar';
 import { CommitPanel } from '../git/CommitPanel';
@@ -20,13 +21,14 @@ interface EditorViewProps {
   onNavigate: (id: string) => void;
   onCommit: (message: string) => Promise<void>;
   onSync: () => Promise<void>;
+  onReloadDocument?: () => void;
 }
 
-export function EditorView({ document, ancestors, workspaceName, onSave, onNavigate, onCommit, onSync }: EditorViewProps) {
+export function EditorView({ document, ancestors, workspaceName, onSave, onNavigate, onCommit, onSync, onReloadDocument }: EditorViewProps) {
   const { t } = useTranslation();
   const { isDirty, isSaving, lastSavedAt, setDirty, setSaving, setLastSavedAt } = useEditorStore();
-  const { log } = useGitStore();
-  const { autoSave } = useSettingsStore();
+  const { log, remoteChangePageId, remoteChangeAuthor, clearRemoteChange } = useGitStore();
+  const { autoSave, fontSize } = useSettingsStore();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [commitOpen, setCommitOpen] = useState(false);
@@ -109,6 +111,25 @@ export function EditorView({ document, ancestors, workspaceName, onSave, onNavig
     setEditorInstance(editor);
   }, []);
 
+  // Remote change banner: show when the current page was updated remotely
+  const showRemoteBanner = !!(document && remoteChangePageId === document.id && remoteChangeAuthor);
+
+  const handleViewDiff = useCallback(() => {
+    setHistoryOpen(true);
+    clearRemoteChange();
+  }, [clearRemoteChange]);
+
+  const handleApplyRemoteChange = useCallback(() => {
+    clearRemoteChange();
+    if (onReloadDocument) {
+      onReloadDocument();
+    }
+  }, [clearRemoteChange, onReloadDocument]);
+
+  const handleDismissRemoteChange = useCallback(() => {
+    clearRemoteChange();
+  }, [clearRemoteChange]);
+
   if (!document) {
     return (
       <div className="flex-1 flex items-center justify-center text-[var(--color-text-secondary)]">
@@ -120,6 +141,14 @@ export function EditorView({ document, ancestors, workspaceName, onSave, onNavig
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <Breadcrumb ancestors={ancestors} current={document} onNavigate={onNavigate} />
+      {showRemoteBanner && (
+        <RemoteChangeBanner
+          author={remoteChangeAuthor!}
+          onViewDiff={handleViewDiff}
+          onApply={handleApplyRemoteChange}
+          onDismiss={handleDismissRemoteChange}
+        />
+      )}
       <EditorToolbar editor={editorInstance} />
 
       {/* Title */}
@@ -134,7 +163,7 @@ export function EditorView({ document, ancestors, workspaceName, onSave, onNavig
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" style={{ fontSize: `${fontSize}px` }}>
         <MarkdownEditor content={body} onUpdate={handleBodyUpdate} onNavigate={onNavigate} onEditorReady={handleEditorReady} />
       </div>
 

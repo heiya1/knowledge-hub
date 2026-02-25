@@ -91,13 +91,26 @@ function App() {
     }
   }, [setLog]);
 
-  // Load workspaces on startup
+  // Load workspaces and settings on startup
   useEffect(() => {
     (async () => {
       try {
         const appDataPath = await getAppDataPath();
-        const workspacesFile = `${appDataPath}workspaces.json`;
 
+        // Load settings
+        const settingsFile = `${appDataPath}settings.json`;
+        if (await fs.exists(settingsFile)) {
+          try {
+            const raw = await fs.readTextFile(settingsFile);
+            const settings = JSON.parse(raw);
+            useSettingsStore.getState().loadSettings(settings);
+          } catch {
+            // Ignore invalid settings file
+          }
+        }
+
+        // Load workspaces
+        const workspacesFile = `${appDataPath}workspaces.json`;
         if (await fs.exists(workspacesFile)) {
           const raw = await fs.readTextFile(workspacesFile);
           const data = JSON.parse(raw);
@@ -113,6 +126,30 @@ function App() {
         setWorkspaces([]);
       }
     })();
+  }, []);
+
+  // Persist settings when they change
+  useEffect(() => {
+    const unsubscribe = useSettingsStore.subscribe(async (state) => {
+      try {
+        const appDataPath = await getAppDataPath();
+        const data = {
+          theme: state.theme,
+          language: state.language,
+          gitAuthorName: state.gitAuthorName,
+          gitAuthorEmail: state.gitAuthorEmail,
+          autoSave: state.autoSave,
+          fontSize: state.fontSize,
+          gitToken: state.gitToken,
+          autoSync: state.autoSync,
+          syncInterval: state.syncInterval,
+        };
+        await fs.writeTextFile(`${appDataPath}settings.json`, JSON.stringify(data, null, 2));
+      } catch {
+        // Silently ignore persistence errors
+      }
+    });
+    return unsubscribe;
   }, []);
 
   // Load documents when workspace changes
@@ -573,6 +610,17 @@ function App() {
       const container = getContainer();
       const dir = container.workspacePath;
 
+      // Capture HEAD oid before pull to detect what changed
+      let headOidBefore: string | null = null;
+      try {
+        const logBefore = await container.gitService.log(dir, { depth: 1 });
+        if (logBefore.length > 0) {
+          headOidBefore = logBefore[0].oid;
+        }
+      } catch {
+        // No commits yet - that's fine
+      }
+
       // Check if remote is configured by trying to pull
       const tokenOpts = gitToken ? { token: gitToken } : undefined;
       await container.gitService.pull(dir, tokenOpts);
@@ -582,6 +630,45 @@ function App() {
       useGitStore.getState().setLastSyncAt(new Date().toISOString());
       await refreshGitStatus();
       await refreshGitLog();
+
+      // Check if the currently open page was affected by the pull
+      const openDocId = useDocumentStore.getState().currentDocumentId;
+      if (openDocId && headOidBefore) {
+        try {
+          const logAfter = await container.gitService.log(dir, { depth: 1 });
+          const headOidAfter = logAfter.length > 0 ? logAfter[0].oid : null;
+
+          // If HEAD changed, the pull brought in new commits
+          if (headOidAfter && headOidAfter !== headOidBefore) {
+            const currentPagePath = `pages/${openDocId}.md`;
+            // Read the file content at the old and new HEAD to compare
+            try {
+              const contentBefore = await container.gitService.readFileAtCommit(dir, headOidBefore, currentPagePath);
+              const contentAfter = await container.gitService.readFileAtCommit(dir, headOidAfter, currentPagePath);
+
+              if (contentBefore !== contentAfter) {
+                // The current page was changed by remote - get the author from the latest commit
+                const latestAuthor = logAfter[0]?.author?.name || 'Someone';
+                useGitStore.getState().setRemoteChange(openDocId, latestAuthor);
+              }
+            } catch {
+              // File may not exist at one of the commits (new file or deleted) - still notify
+              // If the file was newly added remotely, that's also a change worth notifying
+              try {
+                await container.gitService.readFileAtCommit(dir, headOidAfter, currentPagePath);
+                // File exists at new HEAD but threw for old HEAD = new file from remote
+                const latestAuthor = logAfter[0]?.author?.name || 'Someone';
+                useGitStore.getState().setRemoteChange(openDocId, latestAuthor);
+              } catch {
+                // File doesn't exist at new HEAD either - no notification needed
+              }
+            }
+          }
+        } catch {
+          // Could not determine changes - skip notification
+        }
+      }
+
       // Also refresh documents in case remote changes pulled new files
       const docs = await container.documentService.listAll();
       setDocuments(docs);
@@ -633,6 +720,19 @@ function App() {
       window.removeEventListener("focus", handleFocus);
     };
   }, [screen, activeWorkspaceId, autoSync, syncInterval, handleAutoSync, getActiveWorkspace]);
+
+  // Reload the currently open document from disk (used when applying remote changes)
+  const handleReloadDocument = useCallback(async () => {
+    const docId = useDocumentStore.getState().currentDocumentId;
+    if (!docId) return;
+    try {
+      const container = getContainer();
+      const doc = await container.documentService.get(docId);
+      setCurrentDocument(doc);
+    } catch (e) {
+      showToast("error", `Failed to reload document: ${e}`);
+    }
+  }, [setCurrentDocument]);
 
   const handleTrashRestored = useCallback(async () => {
     await refreshDocuments();
@@ -726,6 +826,7 @@ function App() {
         onOpenTrash={() => setTrashOpen(true)}
         onCommit={handleCommit}
         onSync={handleSync}
+        onReloadDocument={handleReloadDocument}
       />
       <SearchModal onSelect={handleSelectPage} onSearch={handleSearch} />
       {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} />}

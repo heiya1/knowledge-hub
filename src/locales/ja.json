@@ -42,7 +42,11 @@
     "unsaved": "未保存の変更あり",
     "placeholder": "ここに入力を始めてください...",
     "history": "履歴",
-    "selectPage": "編集するページを選択してください"
+    "selectPage": "編集するページを選択してください",
+    "remoteChangeNotice": "{{author}}さんがこのページを更新しました",
+    "viewDiff": "差分を見る",
+    "applyChanges": "取り込む",
+    "later": "後で"
   },
   "settings": {
     "title": "設定",

@@ -42,7 +42,11 @@
     "unsaved": "Unsaved changes",
     "placeholder": "Start typing here...",
     "history": "History",
-    "selectPage": "Select a page to start editing"
+    "selectPage": "Select a page to start editing",
+    "remoteChangeNotice": "{{author}} updated this page",
+    "viewDiff": "View Diff",
+    "applyChanges": "Apply",
+    "later": "Later"
   },
   "settings": {
     "title": "Settings",

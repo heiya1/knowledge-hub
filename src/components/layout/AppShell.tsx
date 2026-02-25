@@ -33,6 +33,7 @@ interface AppShellProps {
   onOpenTrash: () => void;
   onCommit: (message: string) => Promise<void>;
   onSync: () => Promise<void>;
+  onReloadDocument?: () => void;
 }
 
 export function AppShell({
@@ -59,6 +60,7 @@ export function AppShell({
   onOpenTrash,
   onCommit,
   onSync,
+  onReloadDocument,
 }: AppShellProps) {
   return (
     <div className="flex h-full">
@@ -90,6 +92,7 @@ export function AppShell({
           onNavigate={onNavigate}
           onCommit={onCommit}
           onSync={onSync}
+          onReloadDocument={onReloadDocument}
         />
         <Terminal workspacePath={workspacePath} />
       </div>
