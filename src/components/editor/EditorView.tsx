@@ -9,6 +9,7 @@ import { CommitPanel } from '../git/CommitPanel';
 import { HistoryPanel } from '../git/HistoryPanel';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGitStore } from '../../stores/gitStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import type { Document, DocumentMeta } from '../../core/models/Document';
 
 interface EditorViewProps {
@@ -25,6 +26,7 @@ export function EditorView({ document, ancestors, workspaceName, onSave, onNavig
   const { t } = useTranslation();
   const { isDirty, isSaving, lastSavedAt, setDirty, setSaving, setLastSavedAt } = useEditorStore();
   const { log } = useGitStore();
+  const { autoSave } = useSettingsStore();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [commitOpen, setCommitOpen] = useState(false);
@@ -58,10 +60,11 @@ export function EditorView({ document, ancestors, workspaceName, onSave, onNavig
   const scheduleAutoSave = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setDirty(true);
+    if (!autoSave) return;
     saveTimerRef.current = setTimeout(() => {
       doSave();
     }, 2000);
-  }, [doSave, setDirty]);
+  }, [doSave, setDirty, autoSave]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);

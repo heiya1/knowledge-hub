@@ -68,7 +68,7 @@ function App() {
     setCurrentDocument,
     setLoading: setDocLoading,
   } = useDocumentStore();
-  const { gitAuthorName, gitAuthorEmail, setGitAuthor } = useSettingsStore();
+  const { gitAuthorName, gitAuthorEmail, gitToken, autoSync, syncInterval, setGitAuthor } = useSettingsStore();
   const { setStatuses, setLog, setSyncing } = useGitStore();
 
   const refreshGitStatus = useCallback(async () => {
@@ -545,13 +545,14 @@ function App() {
       setSyncing(true);
       const container = getContainer();
       const dir = container.workspacePath;
+      const tokenOpts = gitToken ? { token: gitToken } : undefined;
       try {
-        await container.gitService.pull(dir);
+        await container.gitService.pull(dir, tokenOpts);
       } catch {
         // Pull may fail if no remote configured - that's ok
       }
       try {
-        await container.gitService.push(dir);
+        await container.gitService.push(dir, tokenOpts);
       } catch {
         // Push may fail if no remote configured - that's ok
       }
@@ -562,7 +563,7 @@ function App() {
     } finally {
       setSyncing(false);
     }
-  }, [setSyncing, refreshGitStatus, refreshGitLog]);
+  }, [setSyncing, refreshGitStatus, refreshGitLog, gitToken]);
 
   // Auto-sync: pull only (no push) - used by 30s interval and focus recovery
   const consecutiveErrorsRef = useRef(0);
@@ -573,7 +574,8 @@ function App() {
       const dir = container.workspacePath;
 
       // Check if remote is configured by trying to pull
-      await container.gitService.pull(dir);
+      const tokenOpts = gitToken ? { token: gitToken } : undefined;
+      await container.gitService.pull(dir, tokenOpts);
 
       // Success: reset error count, update sync timestamp
       consecutiveErrorsRef.current = 0;
@@ -589,11 +591,11 @@ function App() {
       // Silent fail: increment error count
       consecutiveErrorsRef.current += 1;
     }
-  }, [refreshGitStatus, refreshGitLog, setDocuments, setTree]);
+  }, [refreshGitStatus, refreshGitLog, setDocuments, setTree, gitToken]);
 
-  // Set up auto-sync with dynamic interval (30s normal, 60s after 3+ errors) + focus listener
+  // Set up auto-sync with dynamic interval + focus listener
   useEffect(() => {
-    if (screen !== "editor" || !activeWorkspaceId) return;
+    if (screen !== "editor" || !activeWorkspaceId || !autoSync) return;
 
     const ws = getActiveWorkspace();
     // Skip auto-sync if no remote is configured
@@ -604,7 +606,9 @@ function App() {
 
     const scheduleNext = () => {
       if (cancelled) return;
-      const delayMs = consecutiveErrorsRef.current >= 3 ? 60000 : 30000;
+      // Use user-configured interval, double it after 3+ consecutive errors
+      const baseMs = syncInterval * 1000;
+      const delayMs = consecutiveErrorsRef.current >= 3 ? baseMs * 2 : baseMs;
       timeoutId = setTimeout(async () => {
         if (cancelled) return;
         await handleAutoSync();
@@ -628,7 +632,7 @@ function App() {
       }
       window.removeEventListener("focus", handleFocus);
     };
-  }, [screen, activeWorkspaceId, handleAutoSync, getActiveWorkspace]);
+  }, [screen, activeWorkspaceId, autoSync, syncInterval, handleAutoSync, getActiveWorkspace]);
 
   const handleTrashRestored = useCallback(async () => {
     await refreshDocuments();
