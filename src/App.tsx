@@ -1,21 +1,25 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigationStore } from "./stores/navigationStore";
 import { useWorkspaceStore } from "./stores/workspaceStore";
 import { useDocumentStore } from "./stores/documentStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { WelcomeScreen } from "./components/workspace/WelcomeScreen";
 import { AppShell } from "./components/layout/AppShell";
+import { SearchModal } from "./components/search/SearchModal";
+import { SettingsView } from "./components/settings/SettingsView";
 import { ToastContainer, showToast } from "./components/common/Toast";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { TauriFileSystem, getAppDataPath } from "./infrastructure/TauriFileSystem";
 import { initContainer, getContainer, updateWorkspacePath } from "./infrastructure/container";
 import { generateId } from "./core/utils/id";
 import type { Document } from "./core/models/Document";
+import type { SearchResult } from "./core/services/SearchService";
 
 const fs = new TauriFileSystem();
 
 function App() {
   const { screen, setScreen } = useNavigationStore();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const {
     workspaces,
     activeWorkspaceId,
@@ -77,6 +81,7 @@ function App() {
         setDocuments(docs);
         const builtTree = container.treeService.buildTree(docs);
         setTree(builtTree);
+        container.searchService.rebuild(docs);
       } catch (e) {
         showToast("error", `Failed to load documents: ${e}`);
       } finally {
@@ -163,6 +168,7 @@ function App() {
       const docs = await container.documentService.listAll();
       setDocuments(docs);
       setTree(container.treeService.buildTree(docs));
+      container.searchService.rebuild(docs);
       setCurrentDocumentId(doc.id);
     } catch (e) {
       showToast("error", `Failed to create page: ${e}`);
@@ -176,6 +182,7 @@ function App() {
       const docs = await container.documentService.listAll();
       setDocuments(docs);
       setTree(container.treeService.buildTree(docs));
+      container.searchService.rebuild(docs);
     } catch (e) {
       showToast("error", `Failed to save: ${e}`);
     }
@@ -186,6 +193,15 @@ function App() {
       setCurrentDocumentId(id);
     } else {
       setCurrentDocumentId(null);
+    }
+  }, []);
+
+  const handleSearch = useCallback((query: string): SearchResult[] => {
+    try {
+      const container = getContainer();
+      return container.searchService.search(query);
+    } catch {
+      return [];
     }
   }, []);
 
@@ -226,7 +242,10 @@ function App() {
         onNewPage={handleNewPage}
         onSave={handleSave}
         onNavigate={handleNavigate}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
+      <SearchModal onSelect={handleSelectPage} onSearch={handleSearch} />
+      {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} />}
       <ToastContainer />
     </>
   );

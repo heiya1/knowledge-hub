@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -17,6 +17,13 @@ import { Markdown } from 'tiptap-markdown';
 import { useTranslation } from 'react-i18next';
 import { WikiLink } from './extensions/wiki-link';
 import { WikiLinkSuggestion } from './extensions/WikiLinkSuggestion';
+import { Callout } from './extensions/callout';
+import { MermaidBlock } from './extensions/mermaid';
+import { MathInline, MathBlock } from './extensions/math';
+import { EmojiExtension } from './extensions/emoji';
+import { TableOfContents } from './extensions/toc';
+import { SlashCommandExtension } from './extensions/slash-command';
+import { SlashCommandPopup } from './extensions/SlashCommandPopup';
 
 const lowlight = createLowlight(common);
 
@@ -30,6 +37,18 @@ interface MarkdownEditorProps {
 export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true }: MarkdownEditorProps) {
   const { t } = useTranslation();
   const isSettingContent = useRef(false);
+  const [slashOpen, setSlashOpen] = useState(false);
+  const [slashPosition, setSlashPosition] = useState<{ top: number; left: number } | null>(null);
+
+  const handleSlashOpen = useCallback((_query: string, coords: { top: number; left: number }) => {
+    setSlashPosition(coords);
+    setSlashOpen(true);
+  }, []);
+
+  const handleSlashClose = useCallback(() => {
+    setSlashOpen(false);
+    setSlashPosition(null);
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -54,6 +73,16 @@ export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true 
       CodeBlockLowlight.configure({ lowlight }),
       WikiLink.configure({
         onNavigate: onNavigate ?? (() => {}),
+      }),
+      Callout,
+      MermaidBlock,
+      MathInline,
+      MathBlock,
+      EmojiExtension,
+      TableOfContents,
+      SlashCommandExtension.configure({
+        onOpen: handleSlashOpen,
+        onClose: handleSlashClose,
       }),
       Markdown.configure({
         html: true,
@@ -89,6 +118,14 @@ export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true 
       <EditorContent editor={editor} className="h-full" />
       {editor && onNavigate && (
         <WikiLinkSuggestion editor={editor} onNavigate={onNavigate} />
+      )}
+      {editor && (
+        <SlashCommandPopup
+          editor={editor}
+          isOpen={slashOpen}
+          position={slashPosition}
+          onClose={handleSlashClose}
+        />
       )}
     </div>
   );

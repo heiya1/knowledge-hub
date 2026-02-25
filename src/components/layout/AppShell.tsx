@@ -13,6 +13,7 @@ interface AppShellProps {
   onNewPage: () => void;
   onSave: (doc: Document) => Promise<void>;
   onNavigate: (id: string) => void;
+  onOpenSettings: () => void;
 }
 
 export function AppShell({
@@ -25,6 +26,7 @@ export function AppShell({
   onNewPage,
   onSave,
   onNavigate,
+  onOpenSettings,
 }: AppShellProps) {
   return (
     <div className="flex h-full">
@@ -33,6 +35,7 @@ export function AppShell({
         selectedId={selectedId}
         onSelectPage={onSelectPage}
         onNewPage={onNewPage}
+        onOpenSettings={onOpenSettings}
         workspaceName={workspaceName}
       />
       <EditorView

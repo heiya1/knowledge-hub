@@ -32,7 +32,8 @@
     "saved": "保存済み",
     "unsaved": "未保存の変更あり",
     "placeholder": "ここに入力を始めてください...",
-    "history": "履歴"
+    "history": "履歴",
+    "selectPage": "編集するページを選択してください"
   },
   "settings": {
     "title": "設定",
@@ -49,6 +50,26 @@
     "editor": "エディタ",
     "fontSize": "フォントサイズ",
     "autoSave": "自動保存"
+  },
+  "search": {
+    "noResults": "検索結果なし",
+    "navigate": "↑↓ 移動",
+    "open": "↵ 開く",
+    "close": "esc 閉じる"
+  },
+  "git": {
+    "changes": "件の変更",
+    "sync": "同期",
+    "syncing": "同期中...",
+    "commit": "コミット",
+    "commitChanges": "変更をコミット",
+    "commitMessagePlaceholder": "コミットメッセージを入力...",
+    "noChanges": "変更はありません",
+    "history": "履歴",
+    "noHistory": "履歴はありません",
+    "pushSuccess": "プッシュ完了",
+    "pullSuccess": "プル完了",
+    "commitSuccess": "コミット完了"
   },
   "common": {
     "cancel": "キャンセル",

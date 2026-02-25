@@ -3,7 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { MarkdownEditor } from './MarkdownEditor';
 import { EditorToolbar } from './EditorToolbar';
 import { Breadcrumb } from '../common/Breadcrumb';
+import { GitStatusBar } from '../git/GitStatusBar';
+import { CommitPanel } from '../git/CommitPanel';
+import { HistoryPanel } from '../git/HistoryPanel';
 import { useEditorStore } from '../../stores/editorStore';
+import { useGitStore } from '../../stores/gitStore';
 import type { Document, DocumentMeta } from '../../core/models/Document';
 
 interface EditorViewProps {
@@ -16,8 +20,11 @@ interface EditorViewProps {
 export function EditorView({ document, ancestors, onSave, onNavigate }: EditorViewProps) {
   const { t } = useTranslation();
   const { isDirty, isSaving, lastSavedAt, setDirty, setSaving, setLastSavedAt } = useEditorStore();
+  const { log } = useGitStore();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [commitOpen, setCommitOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const docRef = useRef<Document | null>(null);
 
@@ -104,13 +111,42 @@ export function EditorView({ document, ancestors, onSave, onNavigate }: EditorVi
 
       {/* Status bar */}
       <div className="flex items-center justify-between px-4 py-1.5 text-xs text-[var(--color-text-secondary)] border-t border-[var(--color-border)] bg-[var(--color-bg-sidebar)]">
-        <span>
-          {isSaving ? t('editor.saving') : isDirty ? t('editor.unsaved') : t('editor.saved')}
-        </span>
-        {lastSavedAt && (
-          <span>{new Date(lastSavedAt).toLocaleTimeString()}</span>
-        )}
+        <div className="flex items-center gap-3">
+          <span>
+            {isSaving ? t('editor.saving') : isDirty ? t('editor.unsaved') : t('editor.saved')}
+          </span>
+          <GitStatusBar
+            onCommit={() => setCommitOpen(true)}
+            onSync={() => {/* TODO: wire to git sync */}}
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="hover:text-[var(--color-accent)] transition-colors"
+          >
+            {t('editor.history')}
+          </button>
+          {lastSavedAt && (
+            <span>{new Date(lastSavedAt).toLocaleTimeString()}</span>
+          )}
+        </div>
       </div>
+
+      <CommitPanel
+        isOpen={commitOpen}
+        onClose={() => setCommitOpen(false)}
+        onCommit={async (_message) => {
+          /* TODO: wire to git commit */
+          setCommitOpen(false);
+        }}
+      />
+      <HistoryPanel
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        entries={log}
+        pageTitle={document.title}
+      />
     </div>
   );
 }

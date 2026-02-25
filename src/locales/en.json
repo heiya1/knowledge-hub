@@ -32,7 +32,8 @@
     "saved": "Saved",
     "unsaved": "Unsaved changes",
     "placeholder": "Start typing here...",
-    "history": "History"
+    "history": "History",
+    "selectPage": "Select a page to start editing"
   },
   "settings": {
     "title": "Settings",
@@ -49,6 +50,26 @@
     "editor": "Editor",
     "fontSize": "Font Size",
     "autoSave": "Auto Save"
+  },
+  "search": {
+    "noResults": "No results found",
+    "navigate": "↑↓ navigate",
+    "open": "↵ open",
+    "close": "esc close"
+  },
+  "git": {
+    "changes": "change(s)",
+    "sync": "Sync",
+    "syncing": "Syncing...",
+    "commit": "Commit",
+    "commitChanges": "Commit Changes",
+    "commitMessagePlaceholder": "Enter commit message...",
+    "noChanges": "No changes",
+    "history": "History",
+    "noHistory": "No history",
+    "pushSuccess": "Push successful",
+    "pullSuccess": "Pull successful",
+    "commitSuccess": "Committed successfully"
   },
   "common": {
     "cancel": "Cancel",
