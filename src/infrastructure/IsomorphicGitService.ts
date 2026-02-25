@@ -139,4 +139,35 @@ export class IsomorphicGitService implements IGitService {
 
     await git.pull(pullOptions);
   }
+
+  async readFileAtCommit(dir: string, oid: string, filepath: string): Promise<string> {
+    // Walk the commit's tree to find the file blob
+    const { commit: commitObj } = await git.readCommit({ fs: this.fs, dir, oid });
+    const treeOid = commitObj.tree;
+
+    // Use git.readTree to walk into the filepath
+    const parts = filepath.split('/');
+    let currentTreeOid = treeOid;
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      const treeResult = await git.readTree({ fs: this.fs, dir, oid: currentTreeOid });
+      const entry = treeResult.tree.find((e) => e.path === parts[i]);
+      if (!entry) {
+        throw new Error(`Path not found: ${parts.slice(0, i + 1).join('/')}`);
+      }
+      currentTreeOid = entry.oid;
+    }
+
+    // Read the final tree to find the file blob
+    const finalTree = await git.readTree({ fs: this.fs, dir, oid: currentTreeOid });
+    const filename = parts[parts.length - 1];
+    const fileEntry = finalTree.tree.find((e) => e.path === filename);
+    if (!fileEntry) {
+      throw new Error(`File not found in commit: ${filepath}`);
+    }
+
+    // Read the blob
+    const { blob } = await git.readBlob({ fs: this.fs, dir, oid: fileEntry.oid });
+    return new TextDecoder().decode(blob);
+  }
 }

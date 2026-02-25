@@ -22,4 +22,5 @@ export interface IGitService {
   log(dir: string, options?: { depth?: number; filepath?: string }): Promise<GitLogEntry[]>;
   push(dir: string, options?: { remote?: string; branch?: string; token?: string }): Promise<void>;
   pull(dir: string, options?: { remote?: string; branch?: string; token?: string }): Promise<void>;
+  readFileAtCommit(dir: string, oid: string, filepath: string): Promise<string>;
 }

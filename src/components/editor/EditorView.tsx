@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { Editor } from '@tiptap/react';
 import { useTranslation } from 'react-i18next';
 import { MarkdownEditor } from './MarkdownEditor';
 import { EditorToolbar } from './EditorToolbar';
@@ -13,13 +14,14 @@ import type { Document, DocumentMeta } from '../../core/models/Document';
 interface EditorViewProps {
   document: Document | null;
   ancestors: DocumentMeta[];
+  workspaceName?: string;
   onSave: (doc: Document) => Promise<void>;
   onNavigate: (id: string) => void;
   onCommit: (message: string) => Promise<void>;
   onSync: () => Promise<void>;
 }
 
-export function EditorView({ document, ancestors, onSave, onNavigate, onCommit, onSync }: EditorViewProps) {
+export function EditorView({ document, ancestors, workspaceName, onSave, onNavigate, onCommit, onSync }: EditorViewProps) {
   const { t } = useTranslation();
   const { isDirty, isSaving, lastSavedAt, setDirty, setSaving, setLastSavedAt } = useEditorStore();
   const { log } = useGitStore();
@@ -27,6 +29,7 @@ export function EditorView({ document, ancestors, onSave, onNavigate, onCommit, 
   const [body, setBody] = useState('');
   const [commitOpen, setCommitOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const docRef = useRef<Document | null>(null);
 
@@ -91,6 +94,18 @@ export function EditorView({ document, ancestors, onSave, onNavigate, onCommit, 
     return () => window.removeEventListener('open-commit-panel', handleOpenCommit);
   }, []);
 
+  // Update window title: "{pageTitle} - {workspaceName} - Knowledge Hub"
+  useEffect(() => {
+    const pageTitle = title || t('editor.untitled');
+    const wsName = workspaceName || 'Knowledge Hub';
+    window.document.title = `${pageTitle} - ${wsName} - Knowledge Hub`;
+    return () => { window.document.title = 'Knowledge Hub'; };
+  }, [title, workspaceName, t]);
+
+  const handleEditorReady = useCallback((editor: Editor | null) => {
+    setEditorInstance(editor);
+  }, []);
+
   if (!document) {
     return (
       <div className="flex-1 flex items-center justify-center text-[var(--color-text-secondary)]">
@@ -102,7 +117,7 @@ export function EditorView({ document, ancestors, onSave, onNavigate, onCommit, 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <Breadcrumb ancestors={ancestors} current={document} onNavigate={onNavigate} />
-      <EditorToolbar editor={null} />
+      <EditorToolbar editor={editorInstance} />
 
       {/* Title */}
       <div className="max-w-[800px] mx-auto w-full px-4 pt-6">
@@ -117,7 +132,7 @@ export function EditorView({ document, ancestors, onSave, onNavigate, onCommit, 
 
       {/* Editor */}
       <div className="flex-1 overflow-y-auto">
-        <MarkdownEditor content={body} onUpdate={handleBodyUpdate} onNavigate={onNavigate} />
+        <MarkdownEditor content={body} onUpdate={handleBodyUpdate} onNavigate={onNavigate} onEditorReady={handleEditorReady} />
       </div>
 
       {/* Status bar */}
@@ -154,6 +169,7 @@ export function EditorView({ document, ancestors, onSave, onNavigate, onCommit, 
         onClose={() => setHistoryOpen(false)}
         entries={log}
         pageTitle={document.title}
+        filepath={`pages/${document.id}.md`}
       />
     </div>
   );

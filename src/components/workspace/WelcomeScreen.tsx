@@ -86,6 +86,14 @@ export function WelcomeScreen({ onCreateWorkspace }: WelcomeScreenProps) {
           >
             {t('welcome.start')}
           </button>
+
+          <button
+            type="button"
+            onClick={() => onCreateWorkspace('My Knowledge Base', '', '')}
+            className="w-full py-2 rounded-md text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            {t('welcome.skipToLocal')}
+          </button>
         </form>
       </div>
     </div>

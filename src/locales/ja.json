@@ -72,6 +72,9 @@
     "noChanges": "変更はありません",
     "history": "履歴",
     "noHistory": "履歴はありません",
+    "compare": "比較",
+    "selectToCompare": "比較する2つのバージョンを選択",
+    "diffView": "差分表示",
     "pushSuccess": "プッシュ完了",
     "pullSuccess": "プル完了",
     "commitSuccess": "コミット完了"

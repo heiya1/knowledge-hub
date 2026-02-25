@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigationStore } from "./stores/navigationStore";
 import { useWorkspaceStore } from "./stores/workspaceStore";
@@ -351,6 +351,51 @@ function App() {
     setRenameDialog({ isOpen: false, id: "", currentTitle: "" });
   }, []);
 
+  // --- Move page (drag & drop reorder / reparent) ---
+  const handleMovePage = useCallback(async (id: string, newParent: string | null, newOrder: number) => {
+    try {
+      const container = getContainer();
+      const doc = await container.documentService.get(id);
+
+      // Get all documents to recalculate orders
+      const allDocs = await container.documentService.listAll();
+
+      // Get current siblings at the target location (same parent), excluding the moved doc
+      const targetSiblings = allDocs
+        .filter(d => d.parent === newParent && d.id !== id)
+        .sort((a, b) => a.order - b.order);
+
+      // Clamp the target order to valid range
+      const clampedOrder = Math.max(0, Math.min(newOrder, targetSiblings.length));
+
+      // Update order values for all affected siblings
+      for (let i = 0; i < targetSiblings.length; i++) {
+        const sibling = targetSiblings[i];
+        const newSiblingOrder = i >= clampedOrder ? i + 1 : i;
+        if (sibling.order !== newSiblingOrder) {
+          const siblingDoc = await container.documentService.get(sibling.id);
+          siblingDoc.order = newSiblingOrder;
+          await container.documentService.update(siblingDoc);
+        }
+      }
+
+      // Update the moved document
+      doc.parent = newParent;
+      doc.order = clampedOrder;
+      await container.documentService.update(doc);
+
+      // If this is the currently open document, refresh it
+      if (currentDocumentId === id) {
+        setCurrentDocument({ ...doc });
+      }
+
+      await refreshDocuments();
+      refreshGitStatus();
+    } catch (e) {
+      showToast("error", `Failed to move page: ${e}`);
+    }
+  }, [currentDocumentId, refreshDocuments, refreshGitStatus, setCurrentDocument]);
+
   const handleSave = useCallback(async (doc: Document) => {
     try {
       const container = getContainer();
@@ -369,6 +414,22 @@ function App() {
       setCurrentDocumentId(null);
     }
   }, []);
+
+  const handleSwitchWorkspace = useCallback(async (wsId: string) => {
+    try {
+      setCurrentDocumentId(null);
+      setCurrentDocument(null);
+      setActiveWorkspace(wsId);
+      // Persist the active workspace
+      const appDataPath = await getAppDataPath();
+      await fs.writeTextFile(
+        `${appDataPath}workspaces.json`,
+        JSON.stringify({ workspaces, activeWorkspaceId: wsId })
+      );
+    } catch (e) {
+      showToast("error", `Failed to switch workspace: ${e}`);
+    }
+  }, [workspaces, setActiveWorkspace, setCurrentDocumentId, setCurrentDocument]);
 
   const handleSearch = useCallback((query: string): SearchResult[] => {
     try {
@@ -428,6 +489,72 @@ function App() {
       setSyncing(false);
     }
   }, [setSyncing, refreshGitStatus, refreshGitLog]);
+
+  // Auto-sync: pull only (no push) - used by 30s interval and focus recovery
+  const consecutiveErrorsRef = useRef(0);
+
+  const handleAutoSync = useCallback(async () => {
+    try {
+      const container = getContainer();
+      const dir = container.workspacePath;
+
+      // Check if remote is configured by trying to pull
+      await container.gitService.pull(dir);
+
+      // Success: reset error count, update sync timestamp
+      consecutiveErrorsRef.current = 0;
+      useGitStore.getState().setLastSyncAt(new Date().toISOString());
+      await refreshGitStatus();
+      await refreshGitLog();
+      // Also refresh documents in case remote changes pulled new files
+      const docs = await container.documentService.listAll();
+      setDocuments(docs);
+      setTree(container.treeService.buildTree(docs));
+      container.searchService.rebuild(docs);
+    } catch {
+      // Silent fail: increment error count
+      consecutiveErrorsRef.current += 1;
+    }
+  }, [refreshGitStatus, refreshGitLog, setDocuments, setTree]);
+
+  // Set up auto-sync with dynamic interval (30s normal, 60s after 3+ errors) + focus listener
+  useEffect(() => {
+    if (screen !== "editor" || !activeWorkspaceId) return;
+
+    const ws = getActiveWorkspace();
+    // Skip auto-sync if no remote is configured
+    if (!ws?.remoteUrl) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const delayMs = consecutiveErrorsRef.current >= 3 ? 60000 : 30000;
+      timeoutId = setTimeout(async () => {
+        if (cancelled) return;
+        await handleAutoSync();
+        scheduleNext();
+      }, delayMs);
+    };
+
+    // Start the recurring sync chain
+    scheduleNext();
+
+    // Focus recovery: sync when window regains focus
+    const handleFocus = () => {
+      handleAutoSync();
+    };
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [screen, activeWorkspaceId, handleAutoSync, getActiveWorkspace]);
 
   const handleTrashRestored = useCallback(async () => {
     await refreshDocuments();
@@ -499,10 +626,14 @@ function App() {
         workspaceName={activeWs?.name ?? "Knowledge Hub"}
         workspacePath={activeWs?.path ?? ""}
         sidebarVisible={sidebarVisible}
+        workspaces={workspaces.map(ws => ({ id: ws.id, name: ws.name }))}
+        activeWorkspaceId={activeWorkspaceId}
+        onSwitchWorkspace={handleSwitchWorkspace}
         onSelectPage={handleSelectPage}
         onNewPage={handleNewPage}
         onDeletePage={handleDeleteRequest}
         onRenamePage={handleRenameRequest}
+        onMovePage={handleMovePage}
         onSave={handleSave}
         onNavigate={handleNavigate}
         onOpenSettings={() => setSettingsOpen(true)}

@@ -5,6 +5,11 @@ import { useSearchStore } from '../../stores/searchStore';
 import type { TreeNode } from '../../core/models/TreeNode';
 import type { DocumentMeta } from '../../core/models/Document';
 
+interface WorkspaceInfo {
+  id: string;
+  name: string;
+}
+
 interface SidebarProps {
   tree: TreeNode[];
   documents: DocumentMeta[];
@@ -13,22 +18,40 @@ interface SidebarProps {
   onNewPage: () => void;
   onDeletePage: (id: string, title: string, childCount: number) => void;
   onRenamePage: (id: string, currentTitle: string) => void;
+  onMovePage: (id: string, newParent: string | null, newOrder: number) => void;
   onOpenSettings: () => void;
   onOpenTrash: () => void;
   workspaceName: string;
+  workspaces?: WorkspaceInfo[];
+  activeWorkspaceId?: string | null;
+  onSwitchWorkspace?: (id: string) => void;
 }
 
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 400;
 const DEFAULT_WIDTH = 260;
 
-export function Sidebar({ tree, documents, selectedId, onSelectPage, onNewPage, onDeletePage, onRenamePage, onOpenSettings, onOpenTrash, workspaceName }: SidebarProps) {
+export function Sidebar({ tree, documents, selectedId, onSelectPage, onNewPage, onDeletePage, onRenamePage, onMovePage, onOpenSettings, onOpenTrash, workspaceName, workspaces, activeWorkspaceId, onSwitchWorkspace }: SidebarProps) {
   const { t } = useTranslation();
   const { setOpen: setSearchOpen } = useSearchStore();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
   const isResizing = useRef(false);
   const sidebarRef = useRef<HTMLElement>(null);
+  const wsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close workspace dropdown on click outside
+  useEffect(() => {
+    if (!wsDropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (wsDropdownRef.current && !wsDropdownRef.current.contains(e.target as Node)) {
+        setWsDropdownOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleClick);
+    return () => window.removeEventListener('mousedown', handleClick);
+  }, [wsDropdownOpen]);
 
   // --- Resize logic ---
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -126,11 +149,40 @@ export function Sidebar({ tree, documents, selectedId, onSelectPage, onNewPage, 
       className="h-full bg-[var(--color-bg-sidebar)] border-r border-[var(--color-border)] flex flex-col overflow-hidden select-none relative"
       style={{ width: `${width}px`, minWidth: `${MIN_WIDTH}px`, maxWidth: `${MAX_WIDTH}px` }}
     >
-      {/* Workspace name */}
-      <div className="px-4 py-3 border-b border-[var(--color-border)]">
-        <div className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
-          {workspaceName}
-        </div>
+      {/* Workspace selector */}
+      <div className="px-4 py-3 border-b border-[var(--color-border)] relative" ref={wsDropdownRef}>
+        <button
+          onClick={() => workspaces && workspaces.length > 1 ? setWsDropdownOpen((v) => !v) : undefined}
+          className="w-full flex items-center justify-between text-sm font-semibold text-[var(--color-text-primary)] truncate hover:text-[var(--color-accent)] transition-colors"
+        >
+          <span className="truncate">{workspaceName}</span>
+          {workspaces && workspaces.length > 1 && (
+            <svg className={`w-3.5 h-3.5 shrink-0 ml-1 transition-transform ${wsDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+        </button>
+        {wsDropdownOpen && workspaces && (
+          <div className="absolute left-2 right-2 top-full mt-1 bg-[var(--color-bg-main)] border border-[var(--color-border)] rounded-lg shadow-lg z-20 overflow-hidden">
+            {workspaces.map((ws) => (
+              <button
+                key={ws.id}
+                onClick={() => {
+                  if (ws.id !== activeWorkspaceId && onSwitchWorkspace) {
+                    onSwitchWorkspace(ws.id);
+                  }
+                  setWsDropdownOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-[var(--color-bg-hover)] transition-colors ${
+                  ws.id === activeWorkspaceId ? 'text-[var(--color-accent)] font-medium' : 'text-[var(--color-text-primary)]'
+                }`}
+              >
+                {ws.id === activeWorkspaceId && <span className="mr-1.5">●</span>}
+                {ws.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Search placeholder */}
@@ -172,6 +224,7 @@ export function Sidebar({ tree, documents, selectedId, onSelectPage, onNewPage, 
           onSelect={onSelectPage}
           onDelete={onDeletePage}
           onRename={onRenamePage}
+          onMovePage={onMovePage}
         />
       </div>
 

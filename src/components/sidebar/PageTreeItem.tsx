@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { TreeNode } from '../../core/models/TreeNode';
 
 interface PageTreeItemProps {
@@ -9,9 +11,14 @@ interface PageTreeItemProps {
   onSelect: (id: string) => void;
   onDelete: (id: string, title: string, childCount: number) => void;
   onRename: (id: string, currentTitle: string) => void;
+  onMovePage: (id: string, newParent: string | null, newOrder: number) => void;
+  /** ID of the item currently being dragged (passed from DndContext) */
+  activeId: string | null;
+  /** ID of the item currently being hovered over for reparenting */
+  overItemId: string | null;
 }
 
-export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRename }: PageTreeItemProps) {
+export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRename, onMovePage, activeId, overItemId }: PageTreeItemProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -19,6 +26,32 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
   const menuRef = useRef<HTMLDivElement>(null);
   const hasChildren = node.children.length > 0;
   const isSelected = node.meta.id === selectedId;
+  const isDraggedItem = activeId === node.meta.id;
+  const isDropTarget = overItemId === node.meta.id && activeId !== node.meta.id;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: node.meta.id,
+    data: {
+      type: 'page',
+      node,
+      level,
+      parentId: node.meta.parent,
+    },
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
 
   const countDescendants = useCallback((treeNode: TreeNode): number => {
     let count = treeNode.children.length;
@@ -59,9 +92,9 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
   };
 
   return (
-    <div>
+    <div ref={setNodeRef} style={style} {...attributes}>
       <div
-        className="relative group"
+        className={`relative group ${isDropTarget ? 'ring-2 ring-[var(--color-accent)] ring-inset rounded-md' : ''}`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => { setHovered(false); if (!menuOpen) setMenuOpen(false); }}
       >
@@ -74,6 +107,26 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
             }`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
         >
+          {/* Drag handle - visible on hover */}
+          <span
+            ref={setActivatorNodeRef}
+            {...listeners}
+            className={`w-4 h-4 flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing transition-opacity ${
+              hovered || isDragging ? 'opacity-100' : 'opacity-0'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+            title={t('common.move')}
+          >
+            <svg className="w-3 h-3 text-[var(--color-text-secondary)]" viewBox="0 0 16 16" fill="currentColor">
+              <circle cx="5" cy="3" r="1.5" />
+              <circle cx="11" cy="3" r="1.5" />
+              <circle cx="5" cy="8" r="1.5" />
+              <circle cx="11" cy="8" r="1.5" />
+              <circle cx="5" cy="13" r="1.5" />
+              <circle cx="11" cy="13" r="1.5" />
+            </svg>
+          </span>
+
           {hasChildren ? (
             <span
               onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
@@ -90,7 +143,7 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
         </button>
 
         {/* "..." menu button - visible on hover */}
-        {(hovered || menuOpen) && (
+        {(hovered || menuOpen) && !isDragging && (
           <button
             onClick={handleMenuToggle}
             className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
@@ -126,7 +179,7 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
         )}
       </div>
 
-      {hasChildren && expanded && (
+      {hasChildren && expanded && !isDraggedItem && (
         <div>
           {node.children.map((child) => (
             <PageTreeItem
@@ -137,6 +190,9 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
               onSelect={onSelect}
               onDelete={onDelete}
               onRename={onRename}
+              onMovePage={onMovePage}
+              activeId={activeId}
+              overItemId={overItemId}
             />
           ))}
         </div>

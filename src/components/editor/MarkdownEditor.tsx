@@ -36,9 +36,10 @@ interface MarkdownEditorProps {
   onUpdate: (markdown: string) => void;
   onNavigate?: (id: string) => void;
   editable?: boolean;
+  onEditorReady?: (editor: ReturnType<typeof useEditor>) => void;
 }
 
-export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true }: MarkdownEditorProps) {
+export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true, onEditorReady }: MarkdownEditorProps) {
   const { t } = useTranslation();
   const isSettingContent = useRef(false);
   const [slashOpen, setSlashOpen] = useState(false);
@@ -114,6 +115,12 @@ export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true 
       }
     },
   });
+
+  useEffect(() => {
+    if (editor && onEditorReady) {
+      onEditorReady(editor);
+    }
+  }, [editor, onEditorReady]);
 
   useEffect(() => {
     if (editor && content !== undefined) {

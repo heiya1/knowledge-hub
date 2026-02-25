@@ -4,6 +4,11 @@ import { Terminal } from '../terminal/Terminal';
 import type { TreeNode } from '../../core/models/TreeNode';
 import type { Document, DocumentMeta } from '../../core/models/Document';
 
+interface WorkspaceInfo {
+  id: string;
+  name: string;
+}
+
 interface AppShellProps {
   tree: TreeNode[];
   documents: DocumentMeta[];
@@ -13,10 +18,14 @@ interface AppShellProps {
   workspaceName: string;
   workspacePath: string;
   sidebarVisible: boolean;
+  workspaces?: WorkspaceInfo[];
+  activeWorkspaceId?: string | null;
+  onSwitchWorkspace?: (id: string) => void;
   onSelectPage: (id: string) => void;
   onNewPage: () => void;
   onDeletePage: (id: string, title: string, childCount: number) => void;
   onRenamePage: (id: string, currentTitle: string) => void;
+  onMovePage: (id: string, newParent: string | null, newOrder: number) => void;
   onSave: (doc: Document) => Promise<void>;
   onNavigate: (id: string) => void;
   onOpenSettings: () => void;
@@ -34,10 +43,14 @@ export function AppShell({
   workspaceName,
   workspacePath,
   sidebarVisible,
+  workspaces,
+  activeWorkspaceId,
+  onSwitchWorkspace,
   onSelectPage,
   onNewPage,
   onDeletePage,
   onRenamePage,
+  onMovePage,
   onSave,
   onNavigate,
   onOpenSettings,
@@ -56,15 +69,20 @@ export function AppShell({
           onNewPage={onNewPage}
           onDeletePage={onDeletePage}
           onRenamePage={onRenamePage}
+          onMovePage={onMovePage}
           onOpenSettings={onOpenSettings}
           onOpenTrash={onOpenTrash}
           workspaceName={workspaceName}
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          onSwitchWorkspace={onSwitchWorkspace}
         />
       )}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <EditorView
           document={currentDocument}
           ancestors={ancestors}
+          workspaceName={workspaceName}
           onSave={onSave}
           onNavigate={onNavigate}
           onCommit={onCommit}

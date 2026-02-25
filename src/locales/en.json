@@ -72,6 +72,9 @@
     "noChanges": "No changes",
     "history": "History",
     "noHistory": "No history",
+    "compare": "Compare",
+    "selectToCompare": "Select 2 versions to compare",
+    "diffView": "Diff View",
     "pushSuccess": "Push successful",
     "pullSuccess": "Pull successful",
     "commitSuccess": "Committed successfully"
