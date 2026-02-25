@@ -24,7 +24,12 @@
     "tags": "タグ",
     "trash": "ゴミ箱",
     "workspace": "ワークスペース",
-    "addWorkspace": "ワークスペースを追加"
+    "addWorkspace": "ワークスペースを追加",
+    "deleteConfirmTitle": "ページの削除",
+    "deleteConfirmMessage": "「{{title}}」を削除しますか？ゴミ箱に移動されます。",
+    "deleteConfirmWithChildren": "「{{title}}」と子ページ{{count}}件を削除しますか？ゴミ箱に移動されます。",
+    "renamePrompt": "新しいページタイトルを入力",
+    "noPages": "ページがありません"
   },
   "editor": {
     "untitled": "無題のページ",
@@ -70,6 +75,10 @@
     "pushSuccess": "プッシュ完了",
     "pullSuccess": "プル完了",
     "commitSuccess": "コミット完了"
+  },
+  "terminal": {
+    "title": "ターミナル",
+    "notAvailable": "ブラウザモードではターミナルは利用できません"
   },
   "common": {
     "cancel": "キャンセル",

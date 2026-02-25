@@ -15,9 +15,11 @@ interface EditorViewProps {
   ancestors: DocumentMeta[];
   onSave: (doc: Document) => Promise<void>;
   onNavigate: (id: string) => void;
+  onCommit: (message: string) => Promise<void>;
+  onSync: () => Promise<void>;
 }
 
-export function EditorView({ document, ancestors, onSave, onNavigate }: EditorViewProps) {
+export function EditorView({ document, ancestors, onSave, onNavigate, onCommit, onSync }: EditorViewProps) {
   const { t } = useTranslation();
   const { isDirty, isSaving, lastSavedAt, setDirty, setSaving, setLastSavedAt } = useEditorStore();
   const { log } = useGitStore();
@@ -71,7 +73,7 @@ export function EditorView({ document, ancestors, onSave, onNavigate }: EditorVi
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 's') {
         e.preventDefault();
         doSave();
       }
@@ -79,6 +81,15 @@ export function EditorView({ document, ancestors, onSave, onNavigate }: EditorVi
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [doSave]);
+
+  // Listen for Ctrl+Shift+S (open-commit-panel) custom event from App
+  useEffect(() => {
+    const handleOpenCommit = () => {
+      setCommitOpen(true);
+    };
+    window.addEventListener('open-commit-panel', handleOpenCommit);
+    return () => window.removeEventListener('open-commit-panel', handleOpenCommit);
+  }, []);
 
   if (!document) {
     return (
@@ -89,7 +100,7 @@ export function EditorView({ document, ancestors, onSave, onNavigate }: EditorVi
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <Breadcrumb ancestors={ancestors} current={document} onNavigate={onNavigate} />
       <EditorToolbar editor={null} />
 
@@ -117,7 +128,7 @@ export function EditorView({ document, ancestors, onSave, onNavigate }: EditorVi
           </span>
           <GitStatusBar
             onCommit={() => setCommitOpen(true)}
-            onSync={() => {/* TODO: wire to git sync */}}
+            onSync={onSync}
           />
         </div>
         <div className="flex items-center gap-3">
@@ -136,10 +147,7 @@ export function EditorView({ document, ancestors, onSave, onNavigate }: EditorVi
       <CommitPanel
         isOpen={commitOpen}
         onClose={() => setCommitOpen(false)}
-        onCommit={async (_message) => {
-          /* TODO: wire to git commit */
-          setCommitOpen(false);
-        }}
+        onCommit={onCommit}
       />
       <HistoryPanel
         isOpen={historyOpen}

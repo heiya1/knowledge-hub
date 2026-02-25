@@ -24,7 +24,12 @@
     "tags": "Tags",
     "trash": "Trash",
     "workspace": "Workspace",
-    "addWorkspace": "Add Workspace"
+    "addWorkspace": "Add Workspace",
+    "deleteConfirmTitle": "Delete Page",
+    "deleteConfirmMessage": "Are you sure you want to delete \"{{title}}\"? It will be moved to the trash.",
+    "deleteConfirmWithChildren": "Are you sure you want to delete \"{{title}}\" and its {{count}} child page(s)? They will be moved to the trash.",
+    "renamePrompt": "Enter new page title",
+    "noPages": "No pages yet"
   },
   "editor": {
     "untitled": "Untitled Page",
@@ -70,6 +75,10 @@
     "pushSuccess": "Push successful",
     "pullSuccess": "Pull successful",
     "commitSuccess": "Committed successfully"
+  },
+  "terminal": {
+    "title": "Terminal",
+    "notAvailable": "Terminal not available in browser mode"
   },
   "common": {
     "cancel": "Cancel",

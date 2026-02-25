@@ -8,11 +8,13 @@ interface SidebarProps {
   selectedId: string | null;
   onSelectPage: (id: string) => void;
   onNewPage: () => void;
+  onDeletePage: (id: string, title: string, childCount: number) => void;
+  onRenamePage: (id: string, currentTitle: string) => void;
   onOpenSettings: () => void;
   workspaceName: string;
 }
 
-export function Sidebar({ tree, selectedId, onSelectPage, onNewPage, onOpenSettings, workspaceName }: SidebarProps) {
+export function Sidebar({ tree, selectedId, onSelectPage, onNewPage, onDeletePage, onRenamePage, onOpenSettings, workspaceName }: SidebarProps) {
   const { t } = useTranslation();
   const { setOpen: setSearchOpen } = useSearchStore();
 
@@ -58,7 +60,13 @@ export function Sidebar({ tree, selectedId, onSelectPage, onNewPage, onOpenSetti
 
       {/* Page tree */}
       <div className="flex-1 overflow-y-auto px-1">
-        <PageTree tree={tree} selectedId={selectedId} onSelect={onSelectPage} />
+        <PageTree
+          tree={tree}
+          selectedId={selectedId}
+          onSelect={onSelectPage}
+          onDelete={onDeletePage}
+          onRename={onRenamePage}
+        />
       </div>
 
       {/* Settings button */}

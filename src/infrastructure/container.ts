@@ -7,6 +7,7 @@ import { IsomorphicGitService } from './IsomorphicGitService';
 
 export interface Container {
   fs: IFileSystem;
+  workspacePath: string;
   documentService: DocumentService;
   treeService: TreeService;
   searchService: SearchService;
@@ -20,7 +21,7 @@ export function initContainer(fs: IFileSystem, workspacePath: string): Container
   const treeService = new TreeService();
   const searchService = new SearchService();
   const gitService = new IsomorphicGitService();
-  container = { fs, documentService, treeService, searchService, gitService };
+  container = { fs, workspacePath, documentService, treeService, searchService, gitService };
   return container;
 }
 
@@ -38,11 +39,12 @@ export function updateWorkspacePath(fs: IFileSystem, workspacePath: string): voi
   const gitService = new IsomorphicGitService();
   if (container) {
     container.fs = fs;
+    container.workspacePath = workspacePath;
     container.documentService = documentService;
     container.treeService = treeService;
     container.searchService = searchService;
     container.gitService = gitService;
   } else {
-    container = { fs, documentService, treeService, searchService, gitService };
+    container = { fs, workspacePath, documentService, treeService, searchService, gitService };
   }
 }

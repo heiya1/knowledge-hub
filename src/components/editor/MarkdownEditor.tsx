@@ -24,6 +24,8 @@ import { EmojiExtension } from './extensions/emoji';
 import { TableOfContents } from './extensions/toc';
 import { SlashCommandExtension } from './extensions/slash-command';
 import { SlashCommandPopup } from './extensions/SlashCommandPopup';
+import { DrawioBlock } from './extensions/drawio';
+import Youtube from '@tiptap/extension-youtube';
 
 const lowlight = createLowlight(common);
 
@@ -80,6 +82,11 @@ export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true 
       MathBlock,
       EmojiExtension,
       TableOfContents,
+      DrawioBlock,
+      Youtube.configure({
+        inline: false,
+        ccLanguage: 'en',
+      }),
       SlashCommandExtension.configure({
         onOpen: handleSlashOpen,
         onClose: handleSlashClose,

@@ -51,6 +51,10 @@ export class IsomorphicGitService implements IGitService {
     await git.add({ fs: this.fs, dir, filepath });
   }
 
+  async remove(dir: string, filepath: string): Promise<void> {
+    await git.remove({ fs: this.fs, dir, filepath });
+  }
+
   async commit(
     dir: string,
     message: string,

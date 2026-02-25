@@ -9,6 +9,24 @@
     "fs:default",
     "fs:allow-appdata-read-recursive",
     "fs:allow-appdata-write-recursive",
-    "fs:allow-appdata-meta-recursive"
+    "fs:allow-appdata-meta-recursive",
+    "shell:default",
+    "shell:allow-stdin-write",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "exec-sh",
+          "cmd": "sh",
+          "args": [
+            "-c",
+            {
+              "validator": ".+"
+            }
+          ],
+          "sidecar": false
+        }
+      ]
+    }
   ]
 }
