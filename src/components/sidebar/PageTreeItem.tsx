@@ -20,7 +20,19 @@ interface PageTreeItemProps {
 
 export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRename, onMovePage, activeId, overItemId }: PageTreeItemProps) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(true);
+  const storageKey = `tree-expanded-${node.meta.id}`;
+  const [expanded, setExpanded] = useState(() => {
+    const stored = localStorage.getItem(storageKey);
+    return stored !== null ? stored === 'true' : true;
+  });
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded((prev) => {
+      const next = !prev;
+      localStorage.setItem(storageKey, String(next));
+      return next;
+    });
+  }, [storageKey]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -129,7 +141,7 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
 
           {hasChildren ? (
             <span
-              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              onClick={(e) => { e.stopPropagation(); toggleExpanded(); }}
               className="w-4 h-4 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] shrink-0"
             >
               {expanded ? '\u25BC' : '\u25B6'}

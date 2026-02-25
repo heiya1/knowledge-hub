@@ -14,7 +14,11 @@
     "workspaceName": "ワークスペース名",
     "workspaceNamePlaceholder": "My Knowledge Base",
     "start": "始める",
-    "skipToLocal": "スキップしてローカルで始める"
+    "skipToLocal": "スキップしてローカルで始める",
+    "cloneRepo": "リポジトリをクローン",
+    "repoUrl": "リポジトリURL",
+    "clone": "クローンして開く",
+    "cloning": "クローン中..."
   },
   "sidebar": {
     "search": "検索",
@@ -54,7 +58,17 @@
     "user": "ユーザー",
     "editor": "エディタ",
     "fontSize": "フォントサイズ",
-    "autoSave": "自動保存"
+    "autoSave": "自動保存",
+    "workspace": "ワークスペース",
+    "workspacePath": "ワークスペースのパス",
+    "remoteUrl": "リモートURL",
+    "git": "Git",
+    "gitToken": "認証トークン",
+    "gitTokenPlaceholder": "ghp_... または glpat-...",
+    "gitTokenHint": "GitHubまたはGitLabのパーソナルアクセストークン。settings.jsonにローカル保存されます。",
+    "autoSync": "自動同期",
+    "syncInterval": "同期間隔",
+    "syncIntervalSeconds": "{{seconds}}秒"
   },
   "search": {
     "noResults": "検索結果なし",
@@ -90,6 +104,9 @@
   "terminal": {
     "title": "ターミナル",
     "notAvailable": "ブラウザモードではターミナルは利用できません"
+  },
+  "breadcrumb": {
+    "home": "ホーム"
   },
   "common": {
     "cancel": "キャンセル",

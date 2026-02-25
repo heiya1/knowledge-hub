@@ -14,7 +14,11 @@
     "workspaceName": "Workspace Name",
     "workspaceNamePlaceholder": "My Knowledge Base",
     "start": "Get Started",
-    "skipToLocal": "Skip and Start Locally"
+    "skipToLocal": "Skip and Start Locally",
+    "cloneRepo": "Clone Repository",
+    "repoUrl": "Repository URL",
+    "clone": "Clone and Open",
+    "cloning": "Cloning..."
   },
   "sidebar": {
     "search": "Search",
@@ -54,7 +58,17 @@
     "user": "User",
     "editor": "Editor",
     "fontSize": "Font Size",
-    "autoSave": "Auto Save"
+    "autoSave": "Auto Save",
+    "workspace": "Workspace",
+    "workspacePath": "Workspace Path",
+    "remoteUrl": "Remote URL",
+    "git": "Git",
+    "gitToken": "Authentication Token",
+    "gitTokenPlaceholder": "ghp_... or glpat-...",
+    "gitTokenHint": "Personal access token for GitHub or GitLab. Stored locally in settings.json.",
+    "autoSync": "Auto Sync",
+    "syncInterval": "Sync Interval",
+    "syncIntervalSeconds": "{{seconds}}s"
   },
   "search": {
     "noResults": "No results found",
@@ -90,6 +104,9 @@
   "terminal": {
     "title": "Terminal",
     "notAvailable": "Terminal not available in browser mode"
+  },
+  "breadcrumb": {
+    "home": "Home"
   },
   "common": {
     "cancel": "Cancel",

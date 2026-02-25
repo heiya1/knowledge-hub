@@ -25,13 +25,14 @@ interface SidebarProps {
   workspaces?: WorkspaceInfo[];
   activeWorkspaceId?: string | null;
   onSwitchWorkspace?: (id: string) => void;
+  onAddWorkspace?: () => void;
 }
 
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 400;
 const DEFAULT_WIDTH = 260;
 
-export function Sidebar({ tree, documents, selectedId, onSelectPage, onNewPage, onDeletePage, onRenamePage, onMovePage, onOpenSettings, onOpenTrash, workspaceName, workspaces, activeWorkspaceId, onSwitchWorkspace }: SidebarProps) {
+export function Sidebar({ tree, documents, selectedId, onSelectPage, onNewPage, onDeletePage, onRenamePage, onMovePage, onOpenSettings, onOpenTrash, workspaceName, workspaces, activeWorkspaceId, onSwitchWorkspace, onAddWorkspace }: SidebarProps) {
   const { t } = useTranslation();
   const { setOpen: setSearchOpen } = useSearchStore();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -152,19 +153,17 @@ export function Sidebar({ tree, documents, selectedId, onSelectPage, onNewPage, 
       {/* Workspace selector */}
       <div className="px-4 py-3 border-b border-[var(--color-border)] relative" ref={wsDropdownRef}>
         <button
-          onClick={() => workspaces && workspaces.length > 1 ? setWsDropdownOpen((v) => !v) : undefined}
+          onClick={() => setWsDropdownOpen((v) => !v)}
           className="w-full flex items-center justify-between text-sm font-semibold text-[var(--color-text-primary)] truncate hover:text-[var(--color-accent)] transition-colors"
         >
           <span className="truncate">{workspaceName}</span>
-          {workspaces && workspaces.length > 1 && (
-            <svg className={`w-3.5 h-3.5 shrink-0 ml-1 transition-transform ${wsDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          )}
+          <svg className={`w-3.5 h-3.5 shrink-0 ml-1 transition-transform ${wsDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
-        {wsDropdownOpen && workspaces && (
+        {wsDropdownOpen && (
           <div className="absolute left-2 right-2 top-full mt-1 bg-[var(--color-bg-main)] border border-[var(--color-border)] rounded-lg shadow-lg z-20 overflow-hidden">
-            {workspaces.map((ws) => (
+            {workspaces?.map((ws) => (
               <button
                 key={ws.id}
                 onClick={() => {
@@ -181,6 +180,17 @@ export function Sidebar({ tree, documents, selectedId, onSelectPage, onNewPage, 
                 {ws.name}
               </button>
             ))}
+            <div className="border-t border-[var(--color-border)]">
+              <button
+                onClick={() => {
+                  setWsDropdownOpen(false);
+                  onAddWorkspace?.();
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-[var(--color-accent)] hover:bg-[var(--color-bg-hover)] transition-colors"
+              >
+                + {t('sidebar.addWorkspace')}
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -21,6 +21,7 @@ interface AppShellProps {
   workspaces?: WorkspaceInfo[];
   activeWorkspaceId?: string | null;
   onSwitchWorkspace?: (id: string) => void;
+  onAddWorkspace?: () => void;
   onSelectPage: (id: string) => void;
   onNewPage: () => void;
   onDeletePage: (id: string, title: string, childCount: number) => void;
@@ -46,6 +47,7 @@ export function AppShell({
   workspaces,
   activeWorkspaceId,
   onSwitchWorkspace,
+  onAddWorkspace,
   onSelectPage,
   onNewPage,
   onDeletePage,
@@ -76,6 +78,7 @@ export function AppShell({
           workspaces={workspaces}
           activeWorkspaceId={activeWorkspaceId}
           onSwitchWorkspace={onSwitchWorkspace}
+          onAddWorkspace={onAddWorkspace}
         />
       )}
       <div className="flex-1 flex flex-col h-full overflow-hidden">

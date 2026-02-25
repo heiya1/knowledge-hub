@@ -32,6 +32,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [addWsDialogOpen, setAddWsDialogOpen] = useState(false);
 
   // Delete confirmation dialog state
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -219,6 +220,17 @@ function App() {
         await container.gitService.init(wsPath);
         await container.documentService.create({ title: "Getting Started" });
 
+        // Stage all files and create initial commit
+        const initAuthor = {
+          name: authorName || 'Knowledge Hub User',
+          email: authorEmail || 'user@knowledgehub.local',
+        };
+        const initStatuses = await container.gitService.status(wsPath);
+        for (const s of initStatuses) {
+          await container.gitService.add(wsPath, s.filepath);
+        }
+        await container.gitService.commit(wsPath, 'Initial commit', initAuthor);
+
         // Save workspace info
         const wsId = generateId();
         const workspace = { id: wsId, name, path: wsPath };
@@ -240,6 +252,68 @@ function App() {
         showToast("success", `Workspace "${name}" created`);
       } catch (e) {
         showToast("error", `Failed to create workspace: ${e}`);
+      }
+    },
+    [workspaces]
+  );
+
+  const handleCloneRepo = useCallback(
+    async (url: string, name: string, authorName: string, authorEmail: string) => {
+      try {
+        const appDataPath = await getAppDataPath();
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        const wsPath = `${appDataPath}workspaces/${slug}`;
+
+        // Create workspace directory
+        await fs.createDir(wsPath, { recursive: true });
+
+        // Initialize container and clone
+        initContainer(fs, wsPath);
+        const container = getContainer();
+        await container.gitService.init(wsPath);
+
+        // Clone - this uses isomorphic-git's clone
+        const git = await import('isomorphic-git');
+        const http = await import('isomorphic-git/http/web');
+        const { tauriFsAdapter } = await import('./infrastructure/TauriFsAdapter');
+        await git.clone({
+          fs: tauriFsAdapter,
+          http: http.default,
+          dir: wsPath,
+          url,
+          singleBranch: true,
+        });
+
+        // Ensure required directories exist
+        if (!await fs.exists(`${wsPath}/pages`)) {
+          await fs.createDir(`${wsPath}/pages`, { recursive: true });
+        }
+        if (!await fs.exists(`${wsPath}/assets`)) {
+          await fs.createDir(`${wsPath}/assets/images`, { recursive: true });
+          await fs.createDir(`${wsPath}/assets/diagrams`, { recursive: true });
+        }
+
+        // Save workspace info with remote URL
+        const wsId = generateId();
+        const workspace = { id: wsId, name, path: wsPath, remoteUrl: url };
+        addWorkspace(workspace);
+        setActiveWorkspace(wsId);
+
+        // Persist
+        await fs.writeTextFile(
+          `${appDataPath}workspaces.json`,
+          JSON.stringify({ workspaces: [...workspaces, workspace], activeWorkspaceId: wsId })
+        );
+
+        // Save git author settings
+        if (authorName || authorEmail) {
+          setGitAuthor(authorName, authorEmail);
+        }
+
+        setScreen("editor");
+        showToast("success", `Repository "${name}" cloned successfully`);
+      } catch (e) {
+        showToast("error", `Failed to clone repository: ${e}`);
       }
     },
     [workspaces]
@@ -588,6 +662,13 @@ function App() {
           window.dispatchEvent(new CustomEvent('open-commit-panel'));
         }
       }
+      // Ctrl+Shift+P: Git Push
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        if (screen === 'editor' && activeWorkspaceId) {
+          handleSync();
+        }
+      }
       // Ctrl+\: Toggle sidebar
       if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
         e.preventDefault();
@@ -598,7 +679,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, activeWorkspaceId, handleNewPage]);
+  }, [screen, activeWorkspaceId, handleNewPage, handleSync]);
 
   if (loading) {
     return <LoadingSpinner />;
@@ -607,7 +688,7 @@ function App() {
   if (screen === "welcome" || workspaces.length === 0) {
     return (
       <>
-        <WelcomeScreen onCreateWorkspace={handleCreateWorkspace} />
+        <WelcomeScreen onCreateWorkspace={handleCreateWorkspace} onCloneRepo={handleCloneRepo} />
         <ToastContainer />
       </>
     );
@@ -629,6 +710,7 @@ function App() {
         workspaces={workspaces.map(ws => ({ id: ws.id, name: ws.name }))}
         activeWorkspaceId={activeWorkspaceId}
         onSwitchWorkspace={handleSwitchWorkspace}
+        onAddWorkspace={() => setAddWsDialogOpen(true)}
         onSelectPage={handleSelectPage}
         onNewPage={handleNewPage}
         onDeletePage={handleDeleteRequest}
@@ -668,6 +750,17 @@ function App() {
         currentTitle={renameDialog.currentTitle}
         onConfirm={handleRenameConfirm}
         onCancel={handleRenameCancel}
+      />
+      <RenameDialog
+        isOpen={addWsDialogOpen}
+        currentTitle=""
+        onConfirm={(name) => {
+          setAddWsDialogOpen(false);
+          if (name.trim()) {
+            handleCreateWorkspace(name.trim(), gitAuthorName, gitAuthorEmail);
+          }
+        }}
+        onCancel={() => setAddWsDialogOpen(false)}
       />
       <ToastContainer />
     </>

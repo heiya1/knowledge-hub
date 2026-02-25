@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { DocumentMeta } from '../../core/models/Document';
 
 interface BreadcrumbProps {
@@ -7,13 +8,14 @@ interface BreadcrumbProps {
 }
 
 export function Breadcrumb({ ancestors, current, onNavigate }: BreadcrumbProps) {
+  const { t } = useTranslation();
   return (
     <nav className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] px-4 py-2 border-b border-[var(--color-border)]">
       <button
         onClick={() => onNavigate('')}
         className="hover:text-[var(--color-accent)] transition-colors"
       >
-        Home
+        {t('breadcrumb.home', 'Home')}
       </button>
       {ancestors.map((doc) => (
         <span key={doc.id} className="flex items-center gap-1">
