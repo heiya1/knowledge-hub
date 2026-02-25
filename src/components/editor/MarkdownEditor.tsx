@@ -25,7 +25,9 @@ import { TableOfContents } from './extensions/toc';
 import { SlashCommandExtension } from './extensions/slash-command';
 import { SlashCommandPopup } from './extensions/SlashCommandPopup';
 import { DrawioBlock } from './extensions/drawio';
+import { ImageHandler } from './extensions/image-handler';
 import Youtube from '@tiptap/extension-youtube';
+import { useWorkspaceStore } from '../../stores/workspaceStore';
 
 const lowlight = createLowlight(common);
 
@@ -41,6 +43,8 @@ export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true 
   const isSettingContent = useRef(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashPosition, setSlashPosition] = useState<{ top: number; left: number } | null>(null);
+  const activeWorkspace = useWorkspaceStore((s) => s.getActiveWorkspace());
+  const workspacePath = activeWorkspace?.path ?? '';
 
   const handleSlashOpen = useCallback((_query: string, coords: { top: number; left: number }) => {
     setSlashPosition(coords);
@@ -63,6 +67,9 @@ export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true 
         HTMLAttributes: { class: 'text-[var(--color-accent)] underline' },
       }),
       Image,
+      ImageHandler.configure({
+        workspacePath,
+      }),
       Placeholder.configure({
         placeholder: t('editor.placeholder'),
       }),

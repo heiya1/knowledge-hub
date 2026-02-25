@@ -76,6 +76,14 @@
     "pullSuccess": "プル完了",
     "commitSuccess": "コミット完了"
   },
+  "trash": {
+    "title": "ゴミ箱",
+    "empty": "ゴミ箱は空です",
+    "loading": "読み込み中...",
+    "restore": "復元",
+    "deletePermanently": "完全に削除",
+    "autoDeleteNotice": "ゴミ箱のアイテムは30日後に自動的に削除されます。"
+  },
   "terminal": {
     "title": "ターミナル",
     "notAvailable": "ブラウザモードではターミナルは利用できません"

@@ -11,20 +11,27 @@ import { SearchModal } from "./components/search/SearchModal";
 import { SettingsView } from "./components/settings/SettingsView";
 import { ConfirmDialog } from "./components/common/ConfirmDialog";
 import { RenameDialog } from "./components/common/RenameDialog";
+import { TrashPanel } from "./components/sidebar/TrashPanel";
 import { ToastContainer, showToast } from "./components/common/Toast";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { TauriFileSystem, getAppDataPath } from "./infrastructure/TauriFileSystem";
 import { initContainer, getContainer, updateWorkspacePath } from "./infrastructure/container";
 import { generateId } from "./core/utils/id";
+import { parseFrontmatter } from "./core/utils/frontmatter";
 import type { Document } from "./core/models/Document";
 import type { SearchResult } from "./core/services/SearchService";
 
 const fs = new TauriFileSystem();
 
+/** Number of days before trash items are auto-deleted */
+const TRASH_AUTO_DELETE_DAYS = 30;
+
 function App() {
   const { t } = useTranslation();
   const { screen, setScreen } = useNavigationStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   // Delete confirmation dialog state
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -126,6 +133,9 @@ function App() {
         // Load git status
         await refreshGitStatus();
         await refreshGitLog();
+
+        // Auto-cleanup: delete trash items older than 30 days
+        await cleanupOldTrashItems(ws.path);
       } catch (e) {
         showToast("error", `Failed to load documents: ${e}`);
       } finally {
@@ -133,6 +143,39 @@ function App() {
       }
     })();
   }, [activeWorkspaceId]);
+
+  // 30-day auto-cleanup of .trash/ directory
+  const cleanupOldTrashItems = useCallback(async (workspacePath: string) => {
+    try {
+      const trashDir = `${workspacePath}/.trash`;
+      const trashExists = await fs.exists(trashDir);
+      if (!trashExists) return;
+
+      const entries = await fs.readDir(trashDir);
+      const now = Date.now();
+      const maxAge = TRASH_AUTO_DELETE_DAYS * 24 * 60 * 60 * 1000;
+
+      for (const entry of entries) {
+        if (!entry.isFile || !entry.name.endsWith('.md')) continue;
+
+        try {
+          const filePath = `${trashDir}/${entry.name}`;
+          const raw = await fs.readTextFile(filePath);
+          const doc = parseFrontmatter(raw);
+
+          // Use updatedAt as the deletion timestamp (it was set when the page was last saved before deletion)
+          const deletedAt = new Date(doc.updatedAt).getTime();
+          if (now - deletedAt > maxAge) {
+            await fs.removeFile(filePath);
+          }
+        } catch {
+          // Skip files that can't be parsed; don't delete them to be safe
+        }
+      }
+    } catch {
+      // Silently ignore cleanup errors
+    }
+  }, []);
 
   // Load current document
   useEffect(() => {
@@ -386,6 +429,11 @@ function App() {
     }
   }, [setSyncing, refreshGitStatus, refreshGitLog]);
 
+  const handleTrashRestored = useCallback(async () => {
+    await refreshDocuments();
+    refreshGitStatus();
+  }, [refreshDocuments, refreshGitStatus]);
+
   const getAncestors = () => {
     if (!currentDocument) return [];
     try {
@@ -413,6 +461,13 @@ function App() {
           window.dispatchEvent(new CustomEvent('open-commit-panel'));
         }
       }
+      // Ctrl+\: Toggle sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        if (screen === 'editor') {
+          setSidebarVisible((prev) => !prev);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -437,11 +492,13 @@ function App() {
     <>
       <AppShell
         tree={tree}
+        documents={documents}
         selectedId={currentDocumentId}
         currentDocument={currentDocument}
         ancestors={getAncestors()}
         workspaceName={activeWs?.name ?? "Knowledge Hub"}
         workspacePath={activeWs?.path ?? ""}
+        sidebarVisible={sidebarVisible}
         onSelectPage={handleSelectPage}
         onNewPage={handleNewPage}
         onDeletePage={handleDeleteRequest}
@@ -449,11 +506,19 @@ function App() {
         onSave={handleSave}
         onNavigate={handleNavigate}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenTrash={() => setTrashOpen(true)}
         onCommit={handleCommit}
         onSync={handleSync}
       />
       <SearchModal onSelect={handleSelectPage} onSearch={handleSearch} />
       {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} />}
+      <TrashPanel
+        isOpen={trashOpen}
+        onClose={() => setTrashOpen(false)}
+        workspacePath={activeWs?.path ?? ""}
+        fs={fs}
+        onRestored={handleTrashRestored}
+      />
       <ConfirmDialog
         isOpen={deleteDialog.isOpen}
         title={t('sidebar.deleteConfirmTitle')}
