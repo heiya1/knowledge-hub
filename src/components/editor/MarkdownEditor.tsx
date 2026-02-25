@@ -15,16 +15,19 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { Markdown } from 'tiptap-markdown';
 import { useTranslation } from 'react-i18next';
+import { WikiLink } from './extensions/wiki-link';
+import { WikiLinkSuggestion } from './extensions/WikiLinkSuggestion';
 
 const lowlight = createLowlight(common);
 
 interface MarkdownEditorProps {
   content: string;
   onUpdate: (markdown: string) => void;
+  onNavigate?: (id: string) => void;
   editable?: boolean;
 }
 
-export function MarkdownEditor({ content, onUpdate, editable = true }: MarkdownEditorProps) {
+export function MarkdownEditor({ content, onUpdate, onNavigate, editable = true }: MarkdownEditorProps) {
   const { t } = useTranslation();
   const isSettingContent = useRef(false);
 
@@ -49,6 +52,9 @@ export function MarkdownEditor({ content, onUpdate, editable = true }: MarkdownE
       TableCell,
       TableHeader,
       CodeBlockLowlight.configure({ lowlight }),
+      WikiLink.configure({
+        onNavigate: onNavigate ?? (() => {}),
+      }),
       Markdown.configure({
         html: true,
         transformPastedText: true,
@@ -78,7 +84,14 @@ export function MarkdownEditor({ content, onUpdate, editable = true }: MarkdownE
     }
   }, [content, editor]);
 
-  return <EditorContent editor={editor} className="flex-1 overflow-y-auto" />;
+  return (
+    <div className="relative flex-1 overflow-y-auto">
+      <EditorContent editor={editor} className="h-full" />
+      {editor && onNavigate && (
+        <WikiLinkSuggestion editor={editor} onNavigate={onNavigate} />
+      )}
+    </div>
+  );
 }
 
 export { type MarkdownEditorProps };

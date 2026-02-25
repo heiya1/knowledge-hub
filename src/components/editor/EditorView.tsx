@@ -99,7 +99,7 @@ export function EditorView({ document, ancestors, onSave, onNavigate }: EditorVi
 
       {/* Editor */}
       <div className="flex-1 overflow-y-auto">
-        <MarkdownEditor content={body} onUpdate={handleBodyUpdate} />
+        <MarkdownEditor content={body} onUpdate={handleBodyUpdate} onNavigate={onNavigate} />
       </div>
 
       {/* Status bar */}
