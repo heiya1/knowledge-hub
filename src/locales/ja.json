@@ -1,0 +1,62 @@
+{
+  "app": {
+    "name": "Knowledge Hub"
+  },
+  "welcome": {
+    "title": "Knowledge Hub へようこそ",
+    "subtitle": "ローカルナレッジ管理ツール",
+    "gitAuthor": "Git Author 設定",
+    "name": "名前",
+    "email": "メールアドレス",
+    "namePlaceholder": "山田太郎",
+    "emailPlaceholder": "taro@example.com",
+    "createWorkspace": "新しいワークスペースを作成",
+    "workspaceName": "ワークスペース名",
+    "workspaceNamePlaceholder": "My Knowledge Base",
+    "start": "始める",
+    "skipToLocal": "スキップしてローカルで始める"
+  },
+  "sidebar": {
+    "search": "検索",
+    "searchPlaceholder": "ページを検索... (Ctrl+K)",
+    "newPage": "新規ページ",
+    "pages": "ページ",
+    "tags": "タグ",
+    "trash": "ゴミ箱",
+    "workspace": "ワークスペース",
+    "addWorkspace": "ワークスペースを追加"
+  },
+  "editor": {
+    "untitled": "無題のページ",
+    "saving": "保存中...",
+    "saved": "保存済み",
+    "unsaved": "未保存の変更あり",
+    "placeholder": "ここに入力を始めてください...",
+    "history": "履歴"
+  },
+  "settings": {
+    "title": "設定",
+    "general": "一般",
+    "theme": "テーマ",
+    "themeAuto": "自動",
+    "themeLight": "ライト",
+    "themeDark": "ダーク",
+    "language": "言語",
+    "langAuto": "自動",
+    "langJa": "日本語",
+    "langEn": "English",
+    "user": "ユーザー",
+    "editor": "エディタ",
+    "fontSize": "フォントサイズ",
+    "autoSave": "自動保存"
+  },
+  "common": {
+    "cancel": "キャンセル",
+    "save": "保存",
+    "delete": "削除",
+    "rename": "名前変更",
+    "move": "移動",
+    "confirm": "確認",
+    "close": "閉じる"
+  }
+}

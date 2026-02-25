@@ -1,0 +1,62 @@
+{
+  "app": {
+    "name": "Knowledge Hub"
+  },
+  "welcome": {
+    "title": "Welcome to Knowledge Hub",
+    "subtitle": "Local Knowledge Management Tool",
+    "gitAuthor": "Git Author Settings",
+    "name": "Name",
+    "email": "Email",
+    "namePlaceholder": "John Doe",
+    "emailPlaceholder": "john@example.com",
+    "createWorkspace": "Create New Workspace",
+    "workspaceName": "Workspace Name",
+    "workspaceNamePlaceholder": "My Knowledge Base",
+    "start": "Get Started",
+    "skipToLocal": "Skip and Start Locally"
+  },
+  "sidebar": {
+    "search": "Search",
+    "searchPlaceholder": "Search pages... (Ctrl+K)",
+    "newPage": "New Page",
+    "pages": "Pages",
+    "tags": "Tags",
+    "trash": "Trash",
+    "workspace": "Workspace",
+    "addWorkspace": "Add Workspace"
+  },
+  "editor": {
+    "untitled": "Untitled Page",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "unsaved": "Unsaved changes",
+    "placeholder": "Start typing here...",
+    "history": "History"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "theme": "Theme",
+    "themeAuto": "Auto",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "language": "Language",
+    "langAuto": "Auto",
+    "langJa": "日本語",
+    "langEn": "English",
+    "user": "User",
+    "editor": "Editor",
+    "fontSize": "Font Size",
+    "autoSave": "Auto Save"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "rename": "Rename",
+    "move": "Move",
+    "confirm": "Confirm",
+    "close": "Close"
+  }
+}
