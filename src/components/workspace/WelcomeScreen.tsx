@@ -53,7 +53,7 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
     setToken('');
     setUserInfo(null);
     setRepos([]);
-    setMode('clone');
+    setMode('create');
     setStep('workspace');
   };
 
@@ -151,9 +151,9 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
           </div>
         )}
 
-        {/* Tab switcher */}
-        <div className="flex gap-2 mb-5">
-          {onCloneRepo && (
+        {/* Tab switcher (only show clone tab when authenticated) */}
+        {authenticated ? (
+          <div className="flex gap-2 mb-5">
             <button
               type="button"
               onClick={() => setMode('clone')}
@@ -165,19 +165,23 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
             >
               {t('welcome.cloneExisting')}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setMode('create')}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-md border transition-colors ${
-              mode === 'create'
-                ? 'border-[var(--color-accent)] bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
-                : 'border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
-            }`}
-          >
-            {t('welcome.createNew')}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setMode('create')}
+              className={`flex-1 py-2.5 text-sm font-medium rounded-md border transition-colors ${
+                mode === 'create'
+                  ? 'border-[var(--color-accent)] bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
+                  : 'border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
+              }`}
+            >
+              {t('welcome.createNew')}
+            </button>
+          </div>
+        ) : (
+          <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-5">
+            {t('welcome.createWorkspace')}
+          </h2>
+        )}
 
         {/* Clone mode */}
         {mode === 'clone' && (
