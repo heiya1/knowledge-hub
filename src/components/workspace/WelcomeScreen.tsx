@@ -29,6 +29,13 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
 
   const inputClass = "w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-secondary)]";
 
+  const switchMode = (newMode: WorkspaceMode) => {
+    setMode(newMode);
+    setWorkspaceName('');
+    setRepoName('');
+    setCloneUrl('');
+  };
+
   const handleAuthenticate = async () => {
     if (!token.trim()) return;
     setValidating(true);
@@ -158,7 +165,7 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
           <div className="flex gap-2 mb-5">
             <button
               type="button"
-              onClick={() => setMode('clone')}
+              onClick={() => switchMode('clone')}
               className={`flex-1 py-2.5 text-sm font-medium rounded-md border transition-colors ${
                 mode === 'clone'
                   ? 'border-[var(--color-accent)] bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
@@ -169,7 +176,7 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
             </button>
             <button
               type="button"
-              onClick={() => setMode('create')}
+              onClick={() => switchMode('create')}
               className={`flex-1 py-2.5 text-sm font-medium rounded-md border transition-colors ${
                 mode === 'create'
                   ? 'border-[var(--color-accent)] bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
