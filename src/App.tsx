@@ -248,10 +248,10 @@ function App() {
   }, [currentDocumentId]);
 
   const handleCreateWorkspace = useCallback(
-    async (name: string, token?: string) => {
+    async (repoName: string, displayName: string, token?: string) => {
       try {
         const appDataPath = await getAppDataPath();
-        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        const slug = repoName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
         const wsPath = `${appDataPath}workspaces/${slug}`;
 
         // Create directories
@@ -284,7 +284,7 @@ function App() {
 
         // Save workspace info
         const wsId = generateId();
-        const workspace = { id: wsId, name, path: wsPath };
+        const workspace = { id: wsId, name: displayName, path: wsPath };
         addWorkspace(workspace);
         setActiveWorkspace(wsId);
 
@@ -304,7 +304,7 @@ function App() {
         }
 
         setScreen("editor");
-        showToast("success", `Workspace "${name}" created`);
+        showToast("success", `Workspace "${displayName}" created`);
       } catch (e) {
         showToast("error", `Failed to create workspace: ${e}`);
       }
@@ -891,7 +891,7 @@ function App() {
         onConfirm={(name) => {
           setAddWsDialogOpen(false);
           if (name.trim()) {
-            handleCreateWorkspace(name.trim());
+            handleCreateWorkspace(name.trim(), name.trim());
           }
         }}
         onCancel={() => setAddWsDialogOpen(false)}

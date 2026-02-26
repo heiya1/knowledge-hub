@@ -7,7 +7,7 @@ type Step = 'auth' | 'workspace';
 type WorkspaceMode = 'clone' | 'create';
 
 interface WelcomeScreenProps {
-  onCreateWorkspace: (name: string, token?: string) => void;
+  onCreateWorkspace: (repoName: string, workspaceName: string, token?: string) => void;
   onCloneRepo?: (url: string, name: string, token?: string) => void;
 }
 
@@ -23,6 +23,7 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
 
   // Workspace step state
   const [mode, setMode] = useState<WorkspaceMode>('clone');
+  const [repoName, setRepoName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
   const [cloneUrl, setCloneUrl] = useState('');
 
@@ -59,8 +60,9 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
 
   const handleCreateNew = (e: React.FormEvent) => {
     e.preventDefault();
-    const name = workspaceName.trim() || 'My Knowledge Base';
-    onCreateWorkspace(name, token.trim() || undefined);
+    const repo = repoName.trim();
+    const display = workspaceName.trim() || repo;
+    onCreateWorkspace(repo, display, token.trim() || undefined);
   };
 
   const handleSelectRepo = (repo: GitRepo) => {
@@ -271,19 +273,43 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
           <form onSubmit={handleCreateNew} className="space-y-3">
             <div>
               <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
-                {t('welcome.workspaceName')}
+                {t('welcome.repoName')}
               </label>
+              <input
+                type="text"
+                value={repoName}
+                onChange={(e) => setRepoName(e.target.value)}
+                placeholder={t('welcome.repoNamePlaceholder')}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm text-[var(--color-text-secondary)]">
+                  {t('welcome.workspaceName')}
+                </label>
+                {repoName.trim() && repoName.trim() !== workspaceName && (
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceName(repoName.trim())}
+                    className="text-xs text-[var(--color-accent)] hover:underline"
+                  >
+                    {t('welcome.copyFromRepo')}
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
-                placeholder={t('welcome.workspaceNamePlaceholder')}
+                placeholder={repoName.trim() || t('welcome.workspaceNamePlaceholder')}
                 className={inputClass}
               />
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 rounded-md bg-[var(--color-accent)] text-white font-medium hover:bg-[var(--color-accent-hover)] transition-colors"
+              disabled={!repoName.trim()}
+              className="w-full py-2.5 rounded-md bg-[var(--color-accent)] text-white font-medium hover:bg-[var(--color-accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t('welcome.start')}
             </button>
