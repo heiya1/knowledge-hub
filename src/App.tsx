@@ -15,6 +15,7 @@ import { TrashPanel } from "./components/sidebar/TrashPanel";
 import { ToastContainer, showToast } from "./components/common/Toast";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { TauriFileSystem, getAppDataPath } from "./infrastructure/TauriFileSystem";
+import { fetchGitUserFromToken, readSystemGitConfig } from "./infrastructure/GitProviderApi";
 import { initContainer, getContainer, updateWorkspacePath } from "./infrastructure/container";
 import { generateId } from "./core/utils/id";
 import { parseFrontmatter } from "./core/utils/frontmatter";
@@ -106,6 +107,15 @@ function App() {
             useSettingsStore.getState().loadSettings(settings);
           } catch {
             // Ignore invalid settings file
+          }
+        }
+
+        // If git author is not set, try to read from ~/.gitconfig
+        const { gitAuthorName: savedName } = useSettingsStore.getState();
+        if (!savedName) {
+          const sysUser = await readSystemGitConfig(fs);
+          if (sysUser) {
+            useSettingsStore.getState().setGitAuthor(sysUser.name, sysUser.email);
           }
         }
 
@@ -284,9 +294,13 @@ function App() {
           JSON.stringify({ workspaces: [...workspaces, workspace], activeWorkspaceId: wsId })
         );
 
-        // Save token to settings if provided
+        // Save token and fetch git author from provider API
         if (token) {
           useSettingsStore.getState().setGitToken(token);
+          const userInfo = await fetchGitUserFromToken(token);
+          if (userInfo) {
+            useSettingsStore.getState().setGitAuthor(userInfo.name, userInfo.email);
+          }
         }
 
         setScreen("editor");
@@ -353,6 +367,14 @@ function App() {
           `${appDataPath}workspaces.json`,
           JSON.stringify({ workspaces: [...workspaces, workspace], activeWorkspaceId: wsId })
         );
+
+        // Fetch git author from provider API using token
+        if (token) {
+          const userInfo = await fetchGitUserFromToken(token);
+          if (userInfo) {
+            useSettingsStore.getState().setGitAuthor(userInfo.name, userInfo.email);
+          }
+        }
 
         setScreen("editor");
         showToast("success", `Repository "${name}" cloned successfully`);
