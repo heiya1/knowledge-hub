@@ -72,7 +72,13 @@
     "gitTokenHint": "GitHubまたはGitLabのパーソナルアクセストークン。settings.jsonにローカル保存されます。",
     "autoSync": "自動同期",
     "syncInterval": "同期間隔",
-    "syncIntervalSeconds": "{{seconds}}秒"
+    "syncIntervalSeconds": "{{seconds}}秒",
+    "ai": "AI",
+    "aiProvider": "プロバイダー",
+    "aiApiKey": "APIキー",
+    "aiApiKeyPlaceholder": "sk-... またはAPIキー",
+    "ollamaModel": "モデル",
+    "ollamaUrl": "Ollama URL"
   },
   "search": {
     "noResults": "検索結果なし",
@@ -96,6 +102,24 @@
     "pushSuccess": "プッシュ完了",
     "pullSuccess": "プル完了",
     "commitSuccess": "コミット完了"
+  },
+  "ai": {
+    "title": "AIアシスタント",
+    "placeholder": "何でも聞いてください...",
+    "send": "送信",
+    "summarize": "要約",
+    "translateEn": "英語に翻訳",
+    "translateJa": "日本語に翻訳",
+    "rewrite": "リライト",
+    "askKnowledge": "ナレッジベースに質問",
+    "clear": "クリア",
+    "generating": "生成中...",
+    "notConfigured": "設定でAIプロバイダーを設定してください",
+    "stop": "停止",
+    "summarizeSelection": "要約",
+    "translateSelection": "翻訳",
+    "rewriteSelection": "リライト",
+    "explainSelection": "解説"
   },
   "trash": {
     "title": "ゴミ箱",

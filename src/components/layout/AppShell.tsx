@@ -1,6 +1,7 @@
 import { Sidebar } from '../sidebar/Sidebar';
 import { EditorView } from '../editor/EditorView';
 import { Terminal } from '../terminal/Terminal';
+import { AiPanel } from '../ai/AiPanel';
 import type { TreeNode } from '../../core/models/TreeNode';
 import type { Document, DocumentMeta } from '../../core/models/Document';
 
@@ -96,6 +97,7 @@ export function AppShell({
         />
         <Terminal workspacePath={workspacePath} />
       </div>
+      <AiPanel />
     </div>
   );
 }

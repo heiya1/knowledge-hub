@@ -72,7 +72,13 @@
     "gitTokenHint": "Personal access token for GitHub or GitLab. Stored locally in settings.json.",
     "autoSync": "Auto Sync",
     "syncInterval": "Sync Interval",
-    "syncIntervalSeconds": "{{seconds}}s"
+    "syncIntervalSeconds": "{{seconds}}s",
+    "ai": "AI",
+    "aiProvider": "Provider",
+    "aiApiKey": "API Key",
+    "aiApiKeyPlaceholder": "sk-... or your API key",
+    "ollamaModel": "Model",
+    "ollamaUrl": "Ollama URL"
   },
   "search": {
     "noResults": "No results found",
@@ -96,6 +102,24 @@
     "pushSuccess": "Push successful",
     "pullSuccess": "Pull successful",
     "commitSuccess": "Committed successfully"
+  },
+  "ai": {
+    "title": "AI Assistant",
+    "placeholder": "Ask anything...",
+    "send": "Send",
+    "summarize": "Summarize",
+    "translateEn": "Translate to English",
+    "translateJa": "Translate to Japanese",
+    "rewrite": "Rewrite",
+    "askKnowledge": "Ask Knowledge Base",
+    "clear": "Clear",
+    "generating": "Generating...",
+    "notConfigured": "Set up an AI provider in Settings",
+    "stop": "Stop",
+    "summarizeSelection": "Summarize",
+    "translateSelection": "Translate",
+    "rewriteSelection": "Rewrite",
+    "explainSelection": "Explain"
   },
   "trash": {
     "title": "Trash",

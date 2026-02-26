@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
-import type { ThemeMode, Language, SyncInterval } from '../../stores/settingsStore';
+import type { ThemeMode, Language, SyncInterval, AiProvider } from '../../stores/settingsStore';
 
 interface SettingsViewProps {
   onClose: () => void;
@@ -12,8 +12,10 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   const {
     theme, language, gitAuthorName, gitAuthorEmail,
     autoSave, fontSize, gitToken, autoSync, syncInterval,
+    aiProvider, aiApiKey, ollamaModel, ollamaUrl,
     setTheme, setLanguage, setGitAuthor, setAutoSave, setFontSize,
     setGitToken, setAutoSync, setSyncInterval,
+    setAiProvider, setAiApiKey, setOllamaModel, setOllamaUrl,
   } = useSettingsStore();
   const activeWorkspace = useWorkspaceStore((s) => s.getActiveWorkspace());
   const updateWorkspace = useWorkspaceStore((s) => s.updateWorkspace);
@@ -273,6 +275,79 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                   ))}
                 </div>
               </div>
+            </div>
+          </section>
+
+          {/* AI */}
+          <section>
+            <h3 className="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+              {t('settings.ai')}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-[var(--color-text-primary)] mb-1.5">
+                  {t('settings.aiProvider')}
+                </label>
+                <div className="flex gap-2">
+                  {(['claude', 'openai', 'ollama'] as AiProvider[]).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setAiProvider(p)}
+                      className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                        aiProvider === p
+                          ? 'border-[var(--color-accent)] bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
+                          : 'border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
+                      }`}
+                    >
+                      {p === 'claude' ? 'Claude' : p === 'openai' ? 'OpenAI' : 'Ollama'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {aiProvider !== 'ollama' && (
+                <div>
+                  <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                    {t('settings.aiApiKey')}
+                  </label>
+                  <input
+                    type="password"
+                    value={aiApiKey}
+                    onChange={(e) => setAiApiKey(e.target.value)}
+                    placeholder={t('settings.aiApiKeyPlaceholder')}
+                    className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+                  />
+                </div>
+              )}
+
+              {aiProvider === 'ollama' && (
+                <>
+                  <div>
+                    <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                      {t('settings.ollamaModel')}
+                    </label>
+                    <input
+                      type="text"
+                      value={ollamaModel}
+                      onChange={(e) => setOllamaModel(e.target.value)}
+                      placeholder="llama3.2"
+                      className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                      {t('settings.ollamaUrl')}
+                    </label>
+                    <input
+                      type="text"
+                      value={ollamaUrl}
+                      onChange={(e) => setOllamaUrl(e.target.value)}
+                      placeholder="http://localhost:11434"
+                      className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </section>
         </div>

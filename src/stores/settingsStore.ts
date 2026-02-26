@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import type { AiProvider } from '../core/interfaces/IAiService';
 
+export type { AiProvider };
 export type ThemeMode = 'auto' | 'light' | 'dark';
 export type Language = 'auto' | 'ja' | 'en';
 
@@ -15,6 +17,10 @@ interface Settings {
   gitToken: string;
   autoSync: boolean;
   syncInterval: SyncInterval;
+  aiProvider: AiProvider;
+  aiApiKey: string;
+  ollamaModel: string;
+  ollamaUrl: string;
 }
 
 interface SettingsState extends Settings {
@@ -26,6 +32,10 @@ interface SettingsState extends Settings {
   setGitToken: (gitToken: string) => void;
   setAutoSync: (autoSync: boolean) => void;
   setSyncInterval: (syncInterval: SyncInterval) => void;
+  setAiProvider: (aiProvider: AiProvider) => void;
+  setAiApiKey: (aiApiKey: string) => void;
+  setOllamaModel: (ollamaModel: string) => void;
+  setOllamaUrl: (ollamaUrl: string) => void;
   loadSettings: (settings: Partial<Settings>) => void;
 }
 
@@ -39,6 +49,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   gitToken: '',
   autoSync: true,
   syncInterval: 30,
+  aiProvider: 'claude',
+  aiApiKey: '',
+  ollamaModel: 'llama3.2',
+  ollamaUrl: 'http://localhost:11434',
   setTheme: (theme) => set({ theme }),
   setLanguage: (language) => set({ language }),
   setGitAuthor: (name, email) => set({ gitAuthorName: name, gitAuthorEmail: email }),
@@ -47,5 +61,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setGitToken: (gitToken) => set({ gitToken }),
   setAutoSync: (autoSync) => set({ autoSync }),
   setSyncInterval: (syncInterval) => set({ syncInterval }),
+  setAiProvider: (aiProvider) => set({ aiProvider }),
+  setAiApiKey: (aiApiKey) => set({ aiApiKey }),
+  setOllamaModel: (ollamaModel) => set({ ollamaModel }),
+  setOllamaUrl: (ollamaUrl) => set({ ollamaUrl }),
   loadSettings: (settings) => set(settings),
 }));

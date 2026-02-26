@@ -143,6 +143,10 @@ function App() {
           gitToken: state.gitToken,
           autoSync: state.autoSync,
           syncInterval: state.syncInterval,
+          aiProvider: state.aiProvider,
+          aiApiKey: state.aiApiKey,
+          ollamaModel: state.ollamaModel,
+          ollamaUrl: state.ollamaUrl,
         };
         await fs.writeTextFile(`${appDataPath}settings.json`, JSON.stringify(data, null, 2));
       } catch {

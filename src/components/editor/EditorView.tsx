@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { MarkdownEditor } from './MarkdownEditor';
 import { EditorToolbar } from './EditorToolbar';
 import { RemoteChangeBanner } from './RemoteChangeBanner';
+import { AiContextMenu } from '../ai/AiContextMenu';
+import type { AiAction } from '../ai/AiContextMenu';
 import { Breadcrumb } from '../common/Breadcrumb';
 import { GitStatusBar } from '../git/GitStatusBar';
 import { CommitPanel } from '../git/CommitPanel';
@@ -11,6 +13,7 @@ import { HistoryPanel } from '../git/HistoryPanel';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGitStore } from '../../stores/gitStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useAiStore } from '../../stores/aiStore';
 import type { Document, DocumentMeta } from '../../core/models/Document';
 
 interface EditorViewProps {
@@ -130,6 +133,13 @@ export function EditorView({ document, ancestors, workspaceName, onSave, onNavig
     clearRemoteChange();
   }, [clearRemoteChange]);
 
+  // AI context menu: open AI panel and send selected text
+  const { setPanelOpen: setAiPanelOpen, setPendingAction } = useAiStore();
+  const handleAiAction = useCallback((action: AiAction, selectedText: string) => {
+    setAiPanelOpen(true);
+    setPendingAction({ type: action, text: selectedText });
+  }, [setAiPanelOpen, setPendingAction]);
+
   if (!document) {
     return (
       <div className="flex-1 flex items-center justify-center text-[var(--color-text-secondary)]">
@@ -163,7 +173,8 @@ export function EditorView({ document, ancestors, workspaceName, onSave, onNavig
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-y-auto" style={{ fontSize: `${fontSize}px` }}>
+      <div className="flex-1 overflow-y-auto relative" style={{ fontSize: `${fontSize}px` }}>
+        <AiContextMenu editor={editorInstance} onAiAction={handleAiAction} />
         <MarkdownEditor content={body} onUpdate={handleBodyUpdate} onNavigate={onNavigate} onEditorReady={handleEditorReady} />
       </div>
 
