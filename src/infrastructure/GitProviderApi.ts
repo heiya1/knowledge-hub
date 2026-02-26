@@ -37,6 +37,51 @@ export async function fetchGitUserFromToken(token: string): Promise<GitUserInfo 
   }
 }
 
+export interface GitRepo {
+  name: string;
+  fullName: string;
+  cloneUrl: string;
+  description: string;
+  isPrivate: boolean;
+}
+
+/** Fetch repository list from GitHub or GitLab */
+export async function fetchRepoList(token: string): Promise<GitRepo[]> {
+  try {
+    if (token.startsWith('glpat-')) {
+      const res = await fetch(
+        'https://gitlab.com/api/v4/projects?membership=true&per_page=50&order_by=last_activity_at',
+        { headers: { 'PRIVATE-TOKEN': token } }
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.map((p: Record<string, unknown>) => ({
+        name: p.name as string,
+        fullName: p.path_with_namespace as string,
+        cloneUrl: p.http_url_to_repo as string,
+        description: (p.description as string) || '',
+        isPrivate: p.visibility !== 'public',
+      }));
+    } else {
+      const res = await fetch(
+        'https://api.github.com/user/repos?per_page=50&sort=updated&affiliation=owner,collaborator,organization_member',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.map((r: Record<string, unknown>) => ({
+        name: r.name as string,
+        fullName: r.full_name as string,
+        cloneUrl: r.clone_url as string,
+        description: (r.description as string) || '',
+        isPrivate: r.private as boolean,
+      }));
+    }
+  } catch {
+    return [];
+  }
+}
+
 /** Read user.name / user.email from ~/.gitconfig */
 export async function readSystemGitConfig(fsImpl: IFileSystem): Promise<GitUserInfo | null> {
   try {
