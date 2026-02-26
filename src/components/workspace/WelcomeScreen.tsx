@@ -2,26 +2,26 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface WelcomeScreenProps {
-  onCreateWorkspace: (name: string, authorName: string, authorEmail: string) => void;
-  onCloneRepo?: (url: string, name: string, authorName: string, authorEmail: string) => void;
+  onCreateWorkspace: (name: string, token?: string) => void;
+  onCloneRepo?: (url: string, name: string, token?: string) => void;
 }
 
 export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenProps) {
   const { t } = useTranslation();
-  const [authorName, setAuthorName] = useState('');
-  const [authorEmail, setAuthorEmail] = useState('');
+  const [token, setToken] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
   const [cloneUrl, setCloneUrl] = useState('');
   const [showClone, setShowClone] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedToken = token.trim() || undefined;
     if (showClone && cloneUrl.trim() && onCloneRepo) {
       const name = workspaceName.trim() || cloneUrl.split('/').pop()?.replace('.git', '') || 'cloned-repo';
-      onCloneRepo(cloneUrl.trim(), name, authorName, authorEmail);
+      onCloneRepo(cloneUrl.trim(), name, trimmedToken);
     } else {
       const name = workspaceName.trim() || 'My Knowledge Base';
-      onCreateWorkspace(name, authorName, authorEmail);
+      onCreateWorkspace(name, trimmedToken);
     }
   };
 
@@ -40,35 +40,25 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Remote auth (optional) */}
           <div>
             <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3">
-              {t('welcome.gitAuthor')}
+              {t('welcome.remoteAuth')}
             </h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
-                  {t('welcome.name')}
-                </label>
-                <input
-                  type="text"
-                  value={authorName}
-                  onChange={(e) => setAuthorName(e.target.value)}
-                  placeholder={t('welcome.namePlaceholder')}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
-                  {t('welcome.email')}
-                </label>
-                <input
-                  type="email"
-                  value={authorEmail}
-                  onChange={(e) => setAuthorEmail(e.target.value)}
-                  placeholder={t('welcome.emailPlaceholder')}
-                  className={inputClass}
-                />
-              </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                {t('welcome.tokenLabel')}
+              </label>
+              <input
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder={t('welcome.tokenPlaceholder')}
+                className={inputClass}
+              />
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                {t('welcome.tokenHint')}
+              </p>
             </div>
           </div>
 
@@ -153,7 +143,7 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
 
           <button
             type="button"
-            onClick={() => onCreateWorkspace('My Knowledge Base', '', '')}
+            onClick={() => onCreateWorkspace('My Knowledge Base')}
             className="w-full py-2 rounded-md text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             {t('welcome.skipToLocal')}

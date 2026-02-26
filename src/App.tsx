@@ -68,7 +68,7 @@ function App() {
     setCurrentDocument,
     setLoading: setDocLoading,
   } = useDocumentStore();
-  const { gitAuthorName, gitAuthorEmail, gitToken, autoSync, syncInterval, setGitAuthor } = useSettingsStore();
+  const { gitAuthorName, gitAuthorEmail, gitToken, autoSync, syncInterval } = useSettingsStore();
   const { setStatuses, setLog, setSyncing } = useGitStore();
 
   const refreshGitStatus = useCallback(async () => {
@@ -238,7 +238,7 @@ function App() {
   }, [currentDocumentId]);
 
   const handleCreateWorkspace = useCallback(
-    async (name: string, authorName: string, authorEmail: string) => {
+    async (name: string, token?: string) => {
       try {
         const appDataPath = await getAppDataPath();
         const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -263,8 +263,8 @@ function App() {
 
         // Stage all files and create initial commit
         const initAuthor = {
-          name: authorName || 'Knowledge Hub User',
-          email: authorEmail || 'user@knowledgehub.local',
+          name: gitAuthorName || 'Knowledge Hub User',
+          email: gitAuthorEmail || 'user@knowledgehub.local',
         };
         const initStatuses = await container.gitService.status(wsPath);
         for (const s of initStatuses) {
@@ -284,9 +284,9 @@ function App() {
           JSON.stringify({ workspaces: [...workspaces, workspace], activeWorkspaceId: wsId })
         );
 
-        // Save git author settings
-        if (authorName || authorEmail) {
-          setGitAuthor(authorName, authorEmail);
+        // Save token to settings if provided
+        if (token) {
+          useSettingsStore.getState().setGitToken(token);
         }
 
         setScreen("editor");
@@ -295,15 +295,20 @@ function App() {
         showToast("error", `Failed to create workspace: ${e}`);
       }
     },
-    [workspaces]
+    [workspaces, gitAuthorName, gitAuthorEmail]
   );
 
   const handleCloneRepo = useCallback(
-    async (url: string, name: string, authorName: string, authorEmail: string) => {
+    async (url: string, name: string, token?: string) => {
       try {
         const appDataPath = await getAppDataPath();
         const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
         const wsPath = `${appDataPath}workspaces/${slug}`;
+
+        // Save token first so clone can use it for private repos
+        if (token) {
+          useSettingsStore.getState().setGitToken(token);
+        }
 
         // Create workspace directory
         await fs.createDir(wsPath, { recursive: true });
@@ -323,6 +328,9 @@ function App() {
           dir: wsPath,
           url,
           singleBranch: true,
+          ...(token ? {
+            onAuth: () => ({ username: token }),
+          } : {}),
         });
 
         // Ensure required directories exist
@@ -345,11 +353,6 @@ function App() {
           `${appDataPath}workspaces.json`,
           JSON.stringify({ workspaces: [...workspaces, workspace], activeWorkspaceId: wsId })
         );
-
-        // Save git author settings
-        if (authorName || authorEmail) {
-          setGitAuthor(authorName, authorEmail);
-        }
 
         setScreen("editor");
         showToast("success", `Repository "${name}" cloned successfully`);
@@ -866,7 +869,7 @@ function App() {
         onConfirm={(name) => {
           setAddWsDialogOpen(false);
           if (name.trim()) {
-            handleCreateWorkspace(name.trim(), gitAuthorName, gitAuthorEmail);
+            handleCreateWorkspace(name.trim());
           }
         }}
         onCancel={() => setAddWsDialogOpen(false)}
