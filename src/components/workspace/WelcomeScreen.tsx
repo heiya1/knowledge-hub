@@ -53,7 +53,7 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
     setToken('');
     setUserInfo(null);
     setRepos([]);
-    setMode('create');
+    setMode('clone');
     setStep('workspace');
   };
 
@@ -63,9 +63,9 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
     onCreateWorkspace(name, token.trim() || undefined);
   };
 
-  const handleCloneFromList = (repo: GitRepo) => {
-    if (!onCloneRepo) return;
-    onCloneRepo(repo.cloneUrl, repo.name, token.trim() || undefined);
+  const handleSelectRepo = (repo: GitRepo) => {
+    setCloneUrl(repo.cloneUrl);
+    setWorkspaceName(repo.name);
   };
 
   const handleCloneManual = (e: React.FormEvent) => {
@@ -185,44 +185,48 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
             {/* Repo list from API */}
             {authenticated && repos.length > 0 && (
               <div className="border border-[var(--color-border)] rounded-md max-h-64 overflow-y-auto">
-                {repos.map((repo) => (
-                  <button
-                    key={repo.fullName}
-                    onClick={() => handleCloneFromList(repo)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-[var(--color-bg-hover)] transition-colors border-b border-[var(--color-border)] last:border-b-0"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">
-                          {repo.fullName}
-                        </span>
-                        {repo.isPrivate && (
-                          <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)]">
-                            private
+                {repos.map((repo) => {
+                  const selected = cloneUrl === repo.cloneUrl;
+                  return (
+                    <button
+                      key={repo.fullName}
+                      onClick={() => handleSelectRepo(repo)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors border-b border-[var(--color-border)] last:border-b-0 ${
+                        selected
+                          ? 'bg-[var(--color-sidebar-selected)]'
+                          : 'hover:bg-[var(--color-bg-hover)]'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                            {repo.fullName}
                           </span>
+                          {repo.isPrivate && (
+                            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)]">
+                              private
+                            </span>
+                          )}
+                        </div>
+                        {repo.description && (
+                          <p className="text-xs text-[var(--color-text-secondary)] truncate mt-0.5">
+                            {repo.description}
+                          </p>
                         )}
                       </div>
-                      {repo.description && (
-                        <p className="text-xs text-[var(--color-text-secondary)] truncate mt-0.5">
-                          {repo.description}
-                        </p>
+                      {selected && (
+                        <span className="shrink-0 ml-2 text-xs text-[var(--color-accent)] font-medium">
+                          ✓
+                        </span>
                       )}
-                    </div>
-                    <span className="shrink-0 ml-2 text-xs text-[var(--color-accent)]">
-                      Clone
-                    </span>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
-            {/* Manual URL input */}
+            {/* Clone form (filled by repo selection or manual input) */}
             <form onSubmit={handleCloneManual} className="space-y-3">
-              {authenticated && repos.length > 0 && (
-                <p className="text-xs text-[var(--color-text-secondary)]">
-                  {t('welcome.orEnterUrl')}
-                </p>
-              )}
               <div>
                 <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
                   {t('welcome.repoUrl')}
