@@ -302,7 +302,7 @@ export function WelcomeScreen({ onCreateWorkspace, onCloneRepo }: WelcomeScreenP
                 type="text"
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
-                placeholder={repoName.trim() || t('welcome.workspaceNamePlaceholder')}
+                placeholder={t('welcome.workspaceNamePlaceholder')}
                 className={inputClass}
               />
             </div>
