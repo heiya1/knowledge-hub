@@ -6,7 +6,7 @@ import { parseFrontmatter, stringifyFrontmatter } from '../utils/frontmatter';
 const SKIP_DIRS = new Set(['.git', '.trash', 'node_modules', '.vscode', 'assets']);
 
 /** Sanitize a title into a safe filename (without extension) */
-function sanitizeFilename(title: string): string {
+export function sanitizeFilename(title: string): string {
   // Replace filesystem-unsafe characters with underscore
   let name = title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
   // Collapse multiple underscores/spaces
@@ -108,10 +108,11 @@ export class DocumentService {
     if (!fileExists) {
       // Virtual folder node — return empty document
       const folderName = id.split('/').pop() || id;
+      const idParts = id.split('/');
       return {
         id,
         title: folderName,
-        parent: null,
+        parent: idParts.length > 1 ? idParts.slice(0, -1).join('/') : null,
         tags: ['__folder'],
         body: '',
       };
@@ -120,6 +121,9 @@ export class DocumentService {
     const doc = parseFrontmatter(raw);
     doc.id = id;
     doc.title = this.titleFromId(id);
+    // Derive parent from directory structure (consistent with listAll)
+    const idParts = id.split('/');
+    doc.parent = idParts.length > 1 ? idParts.slice(0, -1).join('/') : null;
     return doc;
   }
 
@@ -159,7 +163,7 @@ export class DocumentService {
    */
   async renameFolder(folderId: string, newName: string): Promise<string> {
     const parts = folderId.split('/');
-    parts[parts.length - 1] = newName;
+    parts[parts.length - 1] = sanitizeFilename(newName);
     const newId = parts.join('/');
 
     const oldPath = `${this.workspacePath}/${folderId}`;

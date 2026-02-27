@@ -7,9 +7,9 @@ interface GitStatusBarProps {
   onSync: () => void;
 }
 
-export function GitStatusBar({ onCommit, onSync }: GitStatusBarProps) {
+export function GitStatusBar({ onCommit }: GitStatusBarProps) {
   const { t } = useTranslation();
-  const { statuses, isSyncing, lastSyncAt } = useGitStore();
+  const { statuses } = useGitStore();
 
   const changedCount = statuses.length;
 
@@ -27,20 +27,6 @@ export function GitStatusBar({ onCommit, onSync }: GitStatusBarProps) {
             </span>
           </button>
         </Tooltip>
-      )}
-      <Tooltip content={t('git.sync')}>
-        <button
-          onClick={onSync}
-          disabled={isSyncing}
-          className="hover:text-accent transition-colors disabled:opacity-50"
-        >
-          {isSyncing ? t('git.syncing') : t('git.sync')}
-        </button>
-      </Tooltip>
-      {lastSyncAt && (
-        <span className="text-text-secondary">
-          {new Date(lastSyncAt).toLocaleTimeString()}
-        </span>
       )}
     </div>
   );

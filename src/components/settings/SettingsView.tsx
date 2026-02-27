@@ -265,11 +265,11 @@ export function SettingsView({ onBack }: SettingsViewProps) {
                       onClick={() => setSyncInterval(interval)}
                       disabled={!autoSync}
                       className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                        syncInterval === interval
-                          ? 'border-accent bg-sidebar-selected text-accent'
-                          : autoSync
-                            ? 'border-border text-text-primary hover:bg-bg-hover'
-                            : 'border-border text-text-secondary opacity-50 cursor-not-allowed'
+                        !autoSync
+                          ? 'border-border text-text-secondary opacity-50 cursor-not-allowed'
+                          : syncInterval === interval
+                            ? 'border-accent bg-sidebar-selected text-accent'
+                            : 'border-border text-text-primary hover:bg-bg-hover'
                       }`}
                     >
                       {t('settings.syncIntervalSeconds', { seconds: interval })}

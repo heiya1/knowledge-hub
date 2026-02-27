@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { useTranslation } from 'react-i18next';
-import { List, X } from 'lucide-react';
+import { PanelRightClose } from 'lucide-react';
 
 interface HeadingItem {
   level: number;
@@ -12,6 +12,22 @@ interface HeadingItem {
 interface OutlineSidebarProps {
   editor: Editor | null;
   onClose: () => void;
+}
+
+/** Resolve the actual heading DOM element for a given document position */
+function getHeadingElement(editor: Editor, pos: number): HTMLElement | null {
+  try {
+    const dom = editor.view.nodeDOM(pos);
+    if (dom instanceof HTMLElement) return dom;
+    const domAtPos = editor.view.domAtPos(pos + 1);
+    const node = domAtPos.node;
+    if (node instanceof HTMLElement) {
+      return node.closest('h1, h2, h3, h4, h5, h6') || node;
+    }
+    return node.parentElement?.closest('h1, h2, h3, h4, h5, h6') || node.parentElement;
+  } catch {
+    return null;
+  }
 }
 
 export function OutlineSidebar({ editor, onClose }: OutlineSidebarProps) {
@@ -50,21 +66,13 @@ export function OutlineSidebar({ editor, onClose }: OutlineSidebarProps) {
       let bestPos: number | null = null;
       const containerRect = scrollContainer.getBoundingClientRect();
 
-      // Find the last heading that has scrolled past the top of the container
       for (const h of headings) {
-        try {
-          const domAtPos = editor.view.domAtPos(h.pos);
-          const el = domAtPos.node instanceof HTMLElement
-            ? domAtPos.node
-            : domAtPos.node.parentElement;
-          if (!el) continue;
-          const rect = el.getBoundingClientRect();
-          const offset = rect.top - containerRect.top;
-          if (offset <= 40) {
-            bestPos = h.pos;
-          }
-        } catch {
-          // pos might be invalid
+        const el = getHeadingElement(editor, h.pos);
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        const offset = rect.top - containerRect.top;
+        if (offset <= 40) {
+          bestPos = h.pos;
         }
       }
       setActivePos(bestPos);
@@ -77,39 +85,31 @@ export function OutlineSidebar({ editor, onClose }: OutlineSidebarProps) {
 
   const handleClick = useCallback((pos: number) => {
     if (!editor) return;
-    // Don't focus/select in view mode to avoid triggering edit mode
-    try {
-      const domAtPos = editor.view.domAtPos(pos);
-      const el = domAtPos.node instanceof HTMLElement
-        ? domAtPos.node
-        : domAtPos.node.parentElement;
-      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch {
-      // Fallback: try setTextSelection
-      editor.chain().setTextSelection(pos).run();
+    const el = getHeadingElement(editor, pos);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [editor]);
 
   return (
-    <div className="flex flex-col h-full border-l border-border bg-bg-sidebar">
+    <div className="flex flex-col h-full border-l border-outlinebar-border bg-outlinebar-bg">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary uppercase tracking-wide">
-          <List className="w-3.5 h-3.5" />
-          {t('editor.outline', 'Outline')}
-        </div>
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-outlinebar-border">
         <button
           onClick={onClose}
-          className="w-5 h-5 flex items-center justify-center rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+          className="w-5 h-5 flex items-center justify-center rounded text-outlinebar-text-muted hover:text-outlinebar-text hover:bg-outlinebar-hover transition-colors"
         >
-          <X className="w-3.5 h-3.5" />
+          <PanelRightClose className="w-3.5 h-3.5" />
         </button>
+        <span className="text-xs font-semibold text-outlinebar-text-muted uppercase tracking-wide">
+          {t('editor.outline', 'Outline')}
+        </span>
       </div>
 
       {/* Heading list */}
       <div className="flex-1 overflow-y-auto py-2">
         {headings.length === 0 ? (
-          <p className="px-3 text-xs text-text-secondary italic">
+          <p className="px-3 text-xs text-outlinebar-text-muted italic">
             {t('editor.noHeadings', 'No headings')}
           </p>
         ) : (
@@ -120,8 +120,8 @@ export function OutlineSidebar({ editor, onClose }: OutlineSidebarProps) {
                 onClick={() => handleClick(h.pos)}
                 className={`block w-full text-left px-3 py-1 text-sm truncate transition-colors
                   ${activePos === h.pos
-                    ? 'text-accent bg-sidebar-selected font-medium'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                    ? 'text-outlinebar-accent bg-outlinebar-item-selected font-medium'
+                    : 'text-outlinebar-text hover:bg-outlinebar-hover'
                   }`}
                 style={{ paddingLeft: `${8 + (h.level - 1) * 12}px` }}
                 title={h.text}

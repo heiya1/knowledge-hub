@@ -323,7 +323,7 @@ function SplitTerminalGroup({
           </div>
           {idx < items.length - 1 && (
             <div
-              className="w-1 shrink-0 cursor-col-resize bg-content-border hover:bg-accent/50 active:bg-accent transition-colors"
+              className="w-1.5 shrink-0 cursor-col-resize bg-content-border hover:bg-accent/50 active:bg-accent transition-colors"
               onMouseDown={(e) => handleMouseDown(idx, e)}
             />
           )}
@@ -480,7 +480,7 @@ export function Terminal({ workspacePath }: TerminalProps) {
     >
       {/* Resize handle */}
       <div
-        className="h-1 cursor-row-resize hover:bg-accent transition-colors shrink-0"
+        className="h-1.5 cursor-row-resize hover:bg-accent transition-colors shrink-0"
         onMouseDown={handleResizeMouseDown}
         role="separator"
         aria-orientation="horizontal"

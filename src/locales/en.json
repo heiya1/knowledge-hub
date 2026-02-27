@@ -328,7 +328,7 @@
   },
   "git": {
     "changes": "change(s)",
-    "sync": "Sync",
+    "sync": "Pull remote changes",
     "syncing": "Syncing...",
     "commit": "Commit",
     "commitChanges": "Commit Changes",

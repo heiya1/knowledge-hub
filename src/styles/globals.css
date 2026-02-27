@@ -30,6 +30,15 @@
   --color-sidebar-border: rgba(255, 255, 255, 0.1);
   --color-sidebar-item-selected: rgba(109, 179, 248, 0.18);
   --color-window-border: #1e3a6e;
+
+  /* Outline bar (right-side panel, light blue tint) */
+  --color-outlinebar-bg: #f0f6ff;
+  --color-outlinebar-text: #1e3a5f;
+  --color-outlinebar-text-muted: #6b8db5;
+  --color-outlinebar-hover: #dbeafe;
+  --color-outlinebar-accent: #0052cc;
+  --color-outlinebar-border: #c8ddf5;
+  --color-outlinebar-item-selected: #bfdbfe;
 }
 
 /* Dark mode */
@@ -61,6 +70,14 @@
     --color-sidebar-border: #2c333a;
     --color-sidebar-item-selected: #1c2b41;
     --color-window-border: #2c333a;
+
+    --color-outlinebar-bg: #141e30;
+    --color-outlinebar-text: #b6c8df;
+    --color-outlinebar-text-muted: #7a94b0;
+    --color-outlinebar-hover: #1c2b41;
+    --color-outlinebar-accent: #579dff;
+    --color-outlinebar-border: #1e3050;
+    --color-outlinebar-item-selected: #1c2b41;
   }
 }
 
@@ -91,6 +108,14 @@
   --color-sidebar-border: #2c333a;
   --color-sidebar-item-selected: #1c2b41;
   --color-window-border: #2c333a;
+
+  --color-outlinebar-bg: #141e30;
+  --color-outlinebar-text: #b6c8df;
+  --color-outlinebar-text-muted: #7a94b0;
+  --color-outlinebar-hover: #1c2b41;
+  --color-outlinebar-accent: #579dff;
+  --color-outlinebar-border: #1e3050;
+  --color-outlinebar-item-selected: #1c2b41;
 }
 
 html,
@@ -107,6 +132,13 @@ body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
     sans-serif;
+}
+
+/* All buttons and summary elements get pointer cursor */
+button,
+summary,
+[role="button"] {
+  cursor: pointer;
 }
 
 /* TipTap editor styles */

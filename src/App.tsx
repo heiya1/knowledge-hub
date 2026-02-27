@@ -29,6 +29,7 @@ import { generateId } from "./core/utils/id";
 import type { Document, DocumentMeta } from "./core/models/Document";
 import type { SearchResult } from "./core/services/SearchService";
 import type { PageTemplate } from "./core/templates";
+import { sanitizeFilename } from "./core/services/DocumentService";
 
 const fs = new TauriFileSystem();
 
@@ -654,9 +655,10 @@ function App() {
         setCurrentDocumentId(doc.id);
       } else {
         // Create folder
+        const safeName = sanitizeFilename(name);
         const folderPath = parentFolder
-          ? `${container.workspacePath}/${parentFolder}/${name}`
-          : `${container.workspacePath}/${name}`;
+          ? `${container.workspacePath}/${parentFolder}/${safeName}`
+          : `${container.workspacePath}/${safeName}`;
         await fs.createDir(folderPath, { recursive: true });
         await refreshDocuments();
       }
@@ -966,6 +968,26 @@ function App() {
     }
   }, [gitAuthorName, gitAuthorEmail, refreshGitStatus, refreshGitLog]);
 
+  const handlePull = useCallback(async () => {
+    try {
+      setSyncing(true);
+      const container = getContainer();
+      const dir = container.workspacePath;
+      const tokenOpts = gitToken ? { token: gitToken } : undefined;
+      try {
+        await container.gitService.pull(dir, tokenOpts);
+      } catch {
+        // Pull may fail if no remote configured - that's ok
+      }
+      await refreshGitStatus();
+      await refreshGitLog();
+    } catch (e) {
+      showToast("error", t('toast.syncFailed', { error: String(e) }));
+    } finally {
+      setSyncing(false);
+    }
+  }, [setSyncing, refreshGitStatus, refreshGitLog, gitToken]);
+
   const handleSync = useCallback(async () => {
     try {
       setSyncing(true);
@@ -1182,7 +1204,7 @@ function App() {
   if (loading) {
     return (
       <div className="flex flex-col h-screen border border-window-border">
-        <TitleBar onOpenHelp={() => setScreen('help')} />
+        <TitleBar onOpenHelp={() => setScreen('help')} onSync={handlePull} />
         <LoadingSpinner />
       </div>
     );
@@ -1191,7 +1213,7 @@ function App() {
   if (screen === 'help') {
     return (
       <div className="flex flex-col h-screen border border-window-border">
-        <TitleBar onOpenHelp={() => setScreen('help')} />
+        <TitleBar onOpenHelp={() => setScreen('help')} onSync={handlePull} />
         <HelpPage onBack={() => setScreen('editor')} />
         <ToastContainer />
       </div>
@@ -1201,7 +1223,7 @@ function App() {
   if (screen === 'settings') {
     return (
       <div className="flex flex-col h-screen border border-window-border">
-        <TitleBar onOpenHelp={() => setScreen('help')} />
+        <TitleBar onOpenHelp={() => setScreen('help')} onSync={handlePull} />
         <SettingsView onBack={() => setScreen('editor')} />
         <ToastContainer />
       </div>
@@ -1212,7 +1234,7 @@ function App() {
     const ws = getActiveWorkspace();
     return (
       <div className="flex flex-col h-screen border border-window-border">
-        <TitleBar onOpenHelp={() => setScreen('help')} />
+        <TitleBar onOpenHelp={() => setScreen('help')} onSync={handlePull} />
         <ImageCleanupView
           onBack={() => setScreen('editor')}
           workspacePath={ws?.path ?? ""}
@@ -1244,7 +1266,7 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen border border-window-border">
-      <TitleBar onOpenHelp={() => setScreen('help')} />
+      <TitleBar onOpenHelp={() => setScreen('help')} onSync={handlePull} />
       <AppShell
         tree={tree}
         documents={documents}

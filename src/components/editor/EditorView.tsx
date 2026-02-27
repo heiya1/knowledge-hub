@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { useTranslation } from 'react-i18next';
-import { MoreHorizontal, AlignJustify, Maximize2, Maximize, PanelTopOpen, ChevronUp, ChevronDown, X, List } from 'lucide-react';
+import { MoreHorizontal, AlignJustify, Maximize2, Maximize, PanelTopOpen, ChevronUp, ChevronDown, X, List, History } from 'lucide-react';
 import { MarkdownEditor } from './MarkdownEditor';
 import { EditorToolbar } from './EditorToolbar';
 import { TableToolbar } from './TableToolbar';
@@ -52,8 +52,7 @@ export function EditorView({ paneId, document, ancestors, workspaceName, onSave,
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [tableActive, setTableActive] = useState(false);
   const [findReplaceOpen, setFindReplaceOpen] = useState(false);
-  const [wordCount, setWordCount] = useState(0);
-  const [pageWidth, setPageWidth] = useState<'normal' | 'wide' | 'full'>('normal');
+  const [pageWidth,setPageWidth] = useState<'normal' | 'wide' | 'full'>('normal');
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
@@ -242,16 +241,11 @@ export function EditorView({ paneId, document, ancestors, workspaceName, onSave,
   }, []);
 
   // Track whether cursor is inside a table for showing TableToolbar
-  // and update word count on editor changes
   useEffect(() => {
     if (!editorInstance) return;
     const handleUpdate = () => {
       setTableActive(editorInstance.isActive('table'));
-      const text = editorInstance.state.doc.textContent;
-      const count = text.split(/\s+/).filter(Boolean).length;
-      setWordCount(count);
     };
-    // Initial word count
     handleUpdate();
     editorInstance.on('selectionUpdate', handleUpdate);
     editorInstance.on('transaction', handleUpdate);
@@ -306,20 +300,21 @@ export function EditorView({ paneId, document, ancestors, workspaceName, onSave,
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header bar: breadcrumb + actions */}
       {headerCollapsed ? (
-        <div className="flex items-center justify-end px-3 py-0.5 bg-bg-main border-b border-border">
+        <div className="flex items-center justify-end pr-1 py-0.5 bg-bg-main border-b border-border">
           <Tooltip content={t('editor.toolbar.toggleHeader')}>
             <button
               onClick={() => { setHeaderCollapsed(false); setToolbarCollapsed(false); }}
-              className="w-6 h-5 flex items-center justify-center rounded text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
             >
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
           </Tooltip>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center px-3 py-1.5 gap-y-1 bg-bg-main min-w-0 border-b border-border">
-          <Breadcrumb ancestors={ancestors} current={document} onNavigate={onNavigate} className="flex-auto min-w-0" />
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex items-center bg-bg-main min-w-0 border-b border-border">
+          <div className="flex-1 flex flex-wrap items-center px-3 py-1.5 gap-y-1 min-w-0">
+            <Breadcrumb ancestors={ancestors} current={document} onNavigate={onNavigate} className="flex-auto min-w-0" />
+            <div className="flex flex-wrap items-center gap-1.5">
             {/* Page width toggle */}
             <div className="flex items-center rounded-md border border-border overflow-hidden flex-shrink-0">
               <Tooltip content={t('editor.toolbar.pageWidthNormal')}>
@@ -355,6 +350,16 @@ export function EditorView({ paneId, document, ancestors, workspaceName, onSave,
                 className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors flex-shrink-0 ${outlineOpen ? 'bg-sidebar-selected text-accent' : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'}`}
               >
                 <List className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+
+            {/* History */}
+            <Tooltip content={t('editor.history')}>
+              <button
+                onClick={() => setHistoryOpen(true)}
+                className="w-7 h-7 flex items-center justify-center rounded-md transition-colors flex-shrink-0 text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+              >
+                <History className="w-3.5 h-3.5" />
               </button>
             </Tooltip>
 
@@ -396,49 +401,51 @@ export function EditorView({ paneId, document, ancestors, workspaceName, onSave,
               </>
             )}
 
-            {/* More menu: rename, delete */}
-            <div className="relative flex-shrink-0" ref={moreMenuRef}>
-                <button
-                  onClick={() => setMoreMenuOpen(v => !v)}
-                  className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
-                {moreMenuOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg shadow-lg border border-border bg-bg-main py-1">
-                    {onRename && (
-                      <button
-                        onClick={() => { setMoreMenuOpen(false); onRename(document.id, document.title); }}
-                        className="w-full text-left px-3 py-1.5 text-sm text-text-primary hover:bg-bg-hover transition-colors"
-                      >
-                        {t('common.rename')}
-                      </button>
-                    )}
-                    {onCopy && (
-                      <button
-                        onClick={() => { setMoreMenuOpen(false); onCopy(document.id); }}
-                        className="w-full text-left px-3 py-1.5 text-sm text-text-primary hover:bg-bg-hover transition-colors"
-                      >
-                        {t('common.duplicate')}
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        onClick={() => { setMoreMenuOpen(false); onDelete(document.id, document.title, 0); }}
-                        className="w-full text-left px-3 py-1.5 text-sm text-danger hover:bg-bg-hover transition-colors"
-                      >
-                        {t('common.delete')}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+            </div>
+          </div>
 
-            {/* Header collapse button */}
+          {/* Right column: More menu + collapse button */}
+          <div className="flex flex-col items-center shrink-0 mr-1" ref={moreMenuRef}>
+            <div className="relative">
+              <button
+                onClick={() => setMoreMenuOpen(v => !v)}
+                className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+              {moreMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg shadow-lg border border-border bg-bg-main py-1">
+                  {onRename && (
+                    <button
+                      onClick={() => { setMoreMenuOpen(false); onRename(document.id, document.title); }}
+                      className="w-full text-left px-3 py-1.5 text-sm text-text-primary hover:bg-bg-hover transition-colors"
+                    >
+                      {t('common.rename')}
+                    </button>
+                  )}
+                  {onCopy && (
+                    <button
+                      onClick={() => { setMoreMenuOpen(false); onCopy(document.id); }}
+                      className="w-full text-left px-3 py-1.5 text-sm text-text-primary hover:bg-bg-hover transition-colors"
+                    >
+                      {t('common.duplicate')}
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      onClick={() => { setMoreMenuOpen(false); onDelete(document.id, document.title, 0); }}
+                      className="w-full text-left px-3 py-1.5 text-sm text-danger hover:bg-bg-hover transition-colors"
+                    >
+                      {t('common.delete')}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <Tooltip content={t('editor.toolbar.toggleHeader')}>
               <button
                 onClick={() => { setHeaderCollapsed(true); setToolbarCollapsed(true); }}
-                className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors flex-shrink-0"
+                className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
               >
                 <ChevronUp className="w-4 h-4" />
               </button>
@@ -464,11 +471,11 @@ export function EditorView({ paneId, document, ancestors, workspaceName, onSave,
 
       {/* Toolbar collapsed: thin expand bar (hidden when header is also collapsed to avoid double bars) */}
       {editing && toolbarCollapsed && !headerCollapsed && (
-        <div className="flex items-center justify-end px-3 py-0.5 border-b border-border bg-bg-main">
+        <div className="flex items-center justify-end pr-1 py-0.5 border-b border-border bg-bg-main">
           <Tooltip content={t('editor.toolbar.toggleToolbar')}>
             <button
               onClick={() => setToolbarCollapsed(false)}
-              className="w-6 h-5 flex items-center justify-center rounded text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
             >
               <PanelTopOpen className="w-3.5 h-3.5" />
             </button>
@@ -568,15 +575,6 @@ export function EditorView({ paneId, document, ancestors, workspaceName, onSave,
           />
         </div>
         <div className="flex items-center gap-3">
-          {editorInstance && (
-            <span>{t('editor.wordCount', '{{count}} words', { count: wordCount })}</span>
-          )}
-          <button
-            onClick={() => setHistoryOpen(true)}
-            className="hover:text-accent transition-colors"
-          >
-            {t('editor.history')}
-          </button>
           {lastSavedAt && (
             <span>{new Date(lastSavedAt).toLocaleTimeString()}</span>
           )}

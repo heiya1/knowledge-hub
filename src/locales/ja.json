@@ -328,7 +328,7 @@
   },
   "git": {
     "changes": "件の変更",
-    "sync": "同期",
+    "sync": "リモートの変更を取り込む",
     "syncing": "同期中...",
     "commit": "コミット",
     "commitChanges": "変更をコミット",

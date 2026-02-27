@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Minus, Square, X, Copy, Search, CircleHelp, Keyboard } from 'lucide-react';
+import { Minus, Square, X, Copy, Search, CircleHelp, Keyboard, RefreshCw } from 'lucide-react';
 import { useSearchStore } from '../../stores/searchStore';
+import { useGitStore } from '../../stores/gitStore';
 import { Tooltip } from '../common/Tooltip';
 import { isTauri } from '../../infrastructure/platform';
 
@@ -17,15 +18,17 @@ function getTauriWindowModule(): Promise<TauriWindowModule> {
 
 interface TitleBarProps {
   onOpenHelp?: () => void;
+  onSync?: () => void;
   /** Hide search bar, shortcuts, help — show only window controls */
   minimal?: boolean;
 }
 
-export function TitleBar({ onOpenHelp, minimal }: TitleBarProps) {
+export function TitleBar({ onOpenHelp, onSync, minimal }: TitleBarProps) {
   const { t } = useTranslation();
   const [maximized, setMaximized] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const setSearchOpen = useSearchStore((s) => s.setOpen);
+  const isSyncing = useGitStore((s) => s.isSyncing);
   const inTauri = isTauri();
 
   useEffect(() => {
@@ -129,6 +132,20 @@ export function TitleBar({ onOpenHelp, minimal }: TitleBarProps) {
                 </div>
               )}
             </div>
+
+            {/* Sync */}
+            {onSync && (
+              <Tooltip content={t('git.sync')}>
+                <button
+                  onClick={onSync}
+                  disabled={isSyncing}
+                  className="h-9 w-9 flex items-center justify-center text-sidebar-text-muted hover:bg-sidebar-hover hover:text-sidebar-text transition-colors disabled:opacity-50"
+                  tabIndex={-1}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                </button>
+              </Tooltip>
+            )}
 
             {/* Help */}
             <Tooltip content={t('help.title')}>

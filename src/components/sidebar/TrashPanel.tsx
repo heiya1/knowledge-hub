@@ -24,7 +24,6 @@ export function TrashPanel({ isOpen, onClose, workspacePath, fs, onRestored }: T
   const [loading, setLoading] = useState(false);
 
   const trashDir = `${workspacePath}/.trash`;
-  const pagesDir = `${workspacePath}/pages`;
 
   const loadTrashItems = useCallback(async () => {
     setLoading(true);
@@ -94,14 +93,22 @@ export function TrashPanel({ isOpen, onClose, workspacePath, fs, onRestored }: T
   const handleRestore = useCallback(async (item: TrashItem) => {
     try {
       const src = `${trashDir}/${item.filename}`;
-      const dest = `${pagesDir}/${item.filename}`;
+      // Un-flatten trash filename to recover original path: "folder__Page.md" → "folder/Page.md"
+      const originalRelPath = item.filename.replace(/__/g, '/');
+      const dest = `${workspacePath}/${originalRelPath}`;
+      // Ensure parent directory exists (for nested files like docs/MyPage.md)
+      const lastSlash = originalRelPath.lastIndexOf('/');
+      if (lastSlash > 0) {
+        const parentDir = `${workspacePath}/${originalRelPath.substring(0, lastSlash)}`;
+        await fs.createDir(parentDir, { recursive: true });
+      }
       await fs.rename(src, dest);
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       onRestored();
     } catch {
       // Silently fail - could show toast but we don't have access here
     }
-  }, [trashDir, pagesDir, fs, onRestored]);
+  }, [trashDir, workspacePath, fs, onRestored]);
 
   const handleDeletePermanently = useCallback(async (item: TrashItem) => {
     try {

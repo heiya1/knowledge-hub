@@ -118,8 +118,8 @@ function SplitPane({
       <div
         className={`shrink-0 ${
           isHorizontal
-            ? 'w-1 cursor-col-resize'
-            : 'h-1 cursor-row-resize'
+            ? 'w-1.5 cursor-col-resize'
+            : 'h-1.5 cursor-row-resize'
         } bg-border hover:bg-accent/50 active:bg-accent transition-colors`}
         onMouseDown={handleMouseDown}
       />

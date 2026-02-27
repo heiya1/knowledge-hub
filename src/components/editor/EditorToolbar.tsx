@@ -173,8 +173,9 @@ export function EditorToolbar({ editor, onCollapse, onOpenTagModal, tagCount }: 
   return (
     <div
       ref={toolbarRef}
-      className="flex items-center gap-0.5 px-3 py-1.5 border-b border-border bg-bg-main flex-wrap"
+      className="flex items-center border-b border-border bg-bg-main"
     >
+      <div className="flex-1 flex items-center gap-0.5 px-3 py-1.5 flex-wrap min-w-0">
       {/* ====== 1. Text style dropdown ====== */}
       <div className="relative" data-dropdown="textStyle">
         <Tooltip content={t('editor.toolbar.textStyle', 'Text style')}>
@@ -791,19 +792,17 @@ export function EditorToolbar({ editor, onCollapse, onOpenTagModal, tagCount }: 
         </button>
       </Tooltip>
 
-      {/* ====== Collapse toolbar ====== */}
+      </div>
+      {/* ====== Collapse toolbar - fixed right ====== */}
       {onCollapse && (
-        <>
-          <div className="ml-auto flex-shrink-0" />
-          <Tooltip content={t('editor.toolbar.toggleToolbar')}>
-            <button
-              onClick={onCollapse}
-              className={iconBtnClass(false)}
-            >
-              <PanelTopClose className="w-4 h-4" />
-            </button>
-          </Tooltip>
-        </>
+        <Tooltip content={t('editor.toolbar.toggleToolbar')}>
+          <button
+            onClick={onCollapse}
+            className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors shrink-0 mr-1"
+          >
+            <PanelTopClose className="w-4 h-4" />
+          </button>
+        </Tooltip>
       )}
     </div>
   );
