@@ -1,4 +1,4 @@
-import type { IFileSystem, DirEntry } from '../core/interfaces/IFileSystem';
+import type { IFileSystem, DirEntry, FileStat } from '../core/interfaces/IFileSystem';
 
 export class MemoryFileSystem implements IFileSystem {
   private files = new Map<string, string>();
@@ -98,9 +98,8 @@ export class MemoryFileSystem implements IFileSystem {
     }
   }
 
-  async copyFile(src: string, dest: string): Promise<void> {
-    const content = this.files.get(src);
-    if (content === undefined) throw new Error(`File not found: ${src}`);
-    this.files.set(dest, content);
+  async stat(_path: string): Promise<FileStat> {
+    const now = new Date();
+    return { size: 0, mtime: now, birthtime: now };
   }
 }

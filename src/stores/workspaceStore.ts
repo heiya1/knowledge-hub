@@ -14,6 +14,7 @@ interface WorkspaceState {
   setWorkspaces: (workspaces: Workspace[]) => void;
   setActiveWorkspace: (id: string) => void;
   addWorkspace: (workspace: Workspace) => void;
+  removeWorkspace: (id: string) => void;
   updateWorkspace: (id: string, updates: Partial<Omit<Workspace, 'id'>>) => void;
   getActiveWorkspace: () => Workspace | undefined;
 }
@@ -26,6 +27,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   setActiveWorkspace: (id) => set({ activeWorkspaceId: id }),
   addWorkspace: (workspace) => set((state) => ({
     workspaces: [...state.workspaces, workspace],
+  })),
+  removeWorkspace: (id) => set((state) => ({
+    workspaces: state.workspaces.filter((w) => w.id !== id),
   })),
   updateWorkspace: (id, updates) => set((state) => ({
     workspaces: state.workspaces.map((w) =>

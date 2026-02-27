@@ -6,17 +6,36 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "fs:default",
-    "fs:allow-appdata-read-recursive",
-    "fs:allow-appdata-write-recursive",
-    "fs:allow-appdata-meta-recursive",
-    "fs:allow-mkdir",
-    "fs:allow-exists",
-    "fs:allow-remove",
-    "fs:allow-rename",
-    "fs:allow-copy-file",
-    "fs:scope-home",
+    {
+      "identifier": "fs:read-all",
+      "allow": [
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:write-all",
+      "allow": [
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:read-meta",
+      "allow": [
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-is-maximized",
+    "core:window:allow-start-dragging",
     "shell:default",
+    "pty:default",
     "shell:allow-stdin-write",
     {
       "identifier": "shell:allow-execute",

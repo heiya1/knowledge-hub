@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Search } from 'lucide-react';
 import { useSearchStore } from '../../stores/searchStore';
 import type { SearchResult } from '../../core/services/SearchService';
 
@@ -65,14 +66,12 @@ export function SearchModal({ onSelect, onSearch }: SearchModalProps) {
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-lg bg-[var(--color-bg-main)] rounded-xl shadow-2xl border border-[var(--color-border)] overflow-hidden"
+        className="relative w-full max-w-lg bg-bg-main rounded-xl shadow-2xl border border-border overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border)]">
-          <svg className="w-4 h-4 text-[var(--color-text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+          <Search className="w-4 h-4 text-text-secondary" />
           <input
             ref={inputRef}
             type="text"
@@ -80,9 +79,9 @@ export function SearchModal({ onSelect, onSearch }: SearchModalProps) {
             onChange={handleQueryChange}
             onKeyDown={handleKeyDown}
             placeholder={t('sidebar.searchPlaceholder')}
-            className="flex-1 bg-transparent border-none outline-none text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)]"
+            className="flex-1 bg-transparent border-none outline-none text-text-primary placeholder:text-text-secondary"
           />
-          <kbd className="px-1.5 py-0.5 text-xs rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]">
+          <kbd className="px-1.5 py-0.5 text-xs rounded border border-border text-text-secondary">
             Esc
           </kbd>
         </div>
@@ -90,7 +89,7 @@ export function SearchModal({ onSelect, onSearch }: SearchModalProps) {
         {/* Results */}
         <div className="max-h-[300px] overflow-y-auto">
           {query && results.length === 0 && (
-            <div className="px-4 py-6 text-center text-sm text-[var(--color-text-secondary)]">
+            <div className="px-4 py-6 text-center text-sm text-text-secondary">
               {t('search.noResults')}
             </div>
           )}
@@ -100,8 +99,8 @@ export function SearchModal({ onSelect, onSearch }: SearchModalProps) {
               onClick={() => { onSelect(result.id); setOpen(false); }}
               className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
                 index === selectedIndex
-                  ? 'bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
-                  : 'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
+                  ? 'bg-sidebar-selected text-accent'
+                  : 'text-text-primary hover:bg-bg-hover'
               }`}
             >
               <div className="font-medium">{result.title || t('editor.untitled')}</div>
@@ -110,7 +109,7 @@ export function SearchModal({ onSelect, onSearch }: SearchModalProps) {
         </div>
 
         {/* Footer hint */}
-        <div className="px-4 py-2 border-t border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] flex items-center gap-4">
+        <div className="px-4 py-2 border-t border-border text-xs text-text-secondary flex items-center gap-4">
           <span>{t('search.navigate')}</span>
           <span>{t('search.open')}</span>
           <span>{t('search.close')}</span>

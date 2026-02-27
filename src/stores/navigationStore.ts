@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Screen = 'welcome' | 'editor' | 'settings';
+export type Screen = 'welcome' | 'editor' | 'settings' | 'help' | 'imageCleanup';
 
 interface NavigationState {
   screen: Screen;

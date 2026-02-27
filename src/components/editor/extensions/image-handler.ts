@@ -218,6 +218,12 @@ function getImageItems(dataTransfer: DataTransfer): DataTransferItem[] {
   return items;
 }
 
+/** Strip extension from a filename to use as alt text */
+function filenameToAlt(name: string): string {
+  if (!name) return '';
+  return name.replace(/\.[^.]+$/, '');
+}
+
 export interface ImageHandlerOptions {
   /** Absolute path to the active workspace directory */
   workspacePath: string;
@@ -234,6 +240,9 @@ export const ImageHandler = Extension.create<ImageHandlerOptions>({
 
   addProseMirrorPlugins() {
     const { workspacePath } = this.options;
+
+    // Track blob URLs currently being saved to avoid duplicate processing
+    const processingBlobs = new Set<string>();
 
     return [
       new Plugin({
@@ -256,12 +265,13 @@ export const ImageHandler = Extension.create<ImageHandlerOptions>({
 
               const mimeType = file.type || 'image/png';
 
+              const alt = filenameToAlt(file.name);
               processAndSaveImage(file, mimeType, workspacePath)
                 .then((src) => {
                   const { schema } = view.state;
                   const imageNode = schema.nodes.image.create({
                     src,
-                    alt: '',
+                    alt,
                   });
                   const transaction = view.state.tr.replaceSelectionWith(imageNode);
                   view.dispatch(transaction);
@@ -299,7 +309,7 @@ export const ImageHandler = Extension.create<ImageHandlerOptions>({
                   const { schema } = view.state;
                   const imageNode = schema.nodes.image.create({
                     src,
-                    alt: file.name || '',
+                    alt: filenameToAlt(file.name),
                   });
                   const insertPos = pos?.pos ?? view.state.selection.from;
                   const transaction = view.state.tr.insert(insertPos, imageNode);
@@ -313,6 +323,63 @@ export const ImageHandler = Extension.create<ImageHandlerOptions>({
             return true;
           },
         },
+      }),
+
+      // Plugin that detects image nodes with blob: URLs (inserted by the
+      // Markdown/HTML paste handler when the clipboard provides images as
+      // HTML rather than file items), fetches the blob, saves it to disk,
+      // and replaces the src with a workspace-relative path.
+      new Plugin({
+        key: new PluginKey('imageBlobResolver'),
+        view: () => ({
+          update: (view, prevState) => {
+            if (prevState.doc.eq(view.state.doc)) return;
+
+            view.state.doc.descendants((node, _pos) => {
+              if (
+                node.type.name === 'image' &&
+                typeof node.attrs.src === 'string' &&
+                node.attrs.src.startsWith('blob:') &&
+                !processingBlobs.has(node.attrs.src)
+              ) {
+                const blobUrl = node.attrs.src;
+                processingBlobs.add(blobUrl);
+
+                fetch(blobUrl)
+                  .then((res) => res.blob())
+                  .then((blob) =>
+                    processAndSaveImage(blob, blob.type || 'image/png', workspacePath),
+                  )
+                  .then((relativePath) => {
+                    processingBlobs.delete(blobUrl);
+                    // Position may have changed — find the node by its blob URL
+                    let targetPos: number | null = null;
+                    view.state.doc.descendants((n, p) => {
+                      if (n.type.name === 'image' && n.attrs.src === blobUrl) {
+                        targetPos = p;
+                        return false;
+                      }
+                    });
+                    if (targetPos !== null) {
+                      const targetNode = view.state.doc.nodeAt(targetPos);
+                      if (targetNode) {
+                        view.dispatch(
+                          view.state.tr.setNodeMarkup(targetPos, undefined, {
+                            ...targetNode.attrs,
+                            src: relativePath,
+                          }),
+                        );
+                      }
+                    }
+                  })
+                  .catch((err) => {
+                    processingBlobs.delete(blobUrl);
+                    console.error('[image-handler] Failed to resolve blob URL:', err);
+                  });
+              }
+            });
+          },
+        }),
       }),
     ];
   },

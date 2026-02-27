@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useGitStore } from '../../stores/gitStore';
+import { Tooltip } from '../common/Tooltip';
 
 interface GitStatusBarProps {
   onCommit: () => void;
@@ -13,29 +14,31 @@ export function GitStatusBar({ onCommit, onSync }: GitStatusBarProps) {
   const changedCount = statuses.length;
 
   return (
-    <div className="flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
+    <div className="flex items-center gap-3 text-xs text-text-secondary">
       {changedCount > 0 && (
-        <button
-          onClick={onCommit}
-          className="flex items-center gap-1 hover:text-[var(--color-accent)] transition-colors"
-          title={t('git.commitChanges')}
-        >
-          <span className="w-2 h-2 rounded-full bg-[var(--color-warning)]" />
-          <span>
-            {changedCount} {t('git.changes')}
-          </span>
-        </button>
+        <Tooltip content={t('git.commitChanges')}>
+          <button
+            onClick={onCommit}
+            className="flex items-center gap-1 hover:text-accent transition-colors"
+          >
+            <span className="w-2 h-2 rounded-full bg-warning" />
+            <span>
+              {changedCount} {t('git.changes')}
+            </span>
+          </button>
+        </Tooltip>
       )}
-      <button
-        onClick={onSync}
-        disabled={isSyncing}
-        className="hover:text-[var(--color-accent)] transition-colors disabled:opacity-50"
-        title={t('git.sync')}
-      >
-        {isSyncing ? t('git.syncing') : t('git.sync')}
-      </button>
+      <Tooltip content={t('git.sync')}>
+        <button
+          onClick={onSync}
+          disabled={isSyncing}
+          className="hover:text-accent transition-colors disabled:opacity-50"
+        >
+          {isSyncing ? t('git.syncing') : t('git.sync')}
+        </button>
+      </Tooltip>
       {lastSyncAt && (
-        <span className="text-[var(--color-text-secondary)]">
+        <span className="text-text-secondary">
           {new Date(lastSyncAt).toLocaleTimeString()}
         </span>
       )}

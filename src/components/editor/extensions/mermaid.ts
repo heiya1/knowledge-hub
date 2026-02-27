@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import i18next from 'i18next';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -60,7 +61,7 @@ export const MermaidBlock = Node.create({
         const hint = document.createElement('div');
         hint.style.cssText =
           'position: absolute; top: 4px; right: 8px; font-size: 11px; color: var(--color-text-secondary); opacity: 0.6;';
-        hint.textContent = 'Double-click to edit';
+        hint.textContent = i18next.t('editor.slashCommand.doubleClickToEdit');
         container.appendChild(hint);
       };
 
@@ -68,11 +69,11 @@ export const MermaidBlock = Node.create({
         renderMermaid();
       } else {
         container.innerHTML =
-          '<p style="color: var(--color-text-secondary); font-size: 13px;">Empty Mermaid diagram. Double-click to edit.</p>';
+          `<p style="color: var(--color-text-secondary); font-size: 13px;">${i18next.t('editor.slashCommand.emptyMermaid')}</p>`;
       }
 
       container.addEventListener('dblclick', () => {
-        const newContent = prompt('Edit Mermaid diagram:', node.attrs.content);
+        const newContent = prompt(i18next.t('editor.slashCommand.editMermaid'), node.attrs.content);
         if (newContent !== null && typeof getPos === 'function') {
           editor
             .chain()
@@ -87,6 +88,34 @@ export const MermaidBlock = Node.create({
       });
 
       return { dom: container };
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: { write: (text: string) => void; ensureNewLine: () => void; closeBlock: (node: unknown) => void }, node: { attrs: { content: string } }) {
+          state.write('```mermaid\n');
+          state.write(node.attrs.content || '');
+          state.ensureNewLine();
+          state.write('```');
+          state.closeBlock(node);
+        },
+        parse: {
+          // After markdown-it renders, convert <code class="language-mermaid"> to <div data-mermaid>
+          updateDOM(element: HTMLElement) {
+            element.querySelectorAll('pre > code.language-mermaid').forEach((code) => {
+              const pre = code.parentElement;
+              if (!pre) return;
+              const div = document.createElement('div');
+              div.setAttribute('data-mermaid', '');
+              div.setAttribute('content', code.textContent || '');
+              div.className = 'mermaid-block';
+              pre.replaceWith(div);
+            });
+          },
+        },
+      },
     };
   },
 

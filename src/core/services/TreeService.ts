@@ -21,9 +21,15 @@ export class TreeService {
       }
     }
 
-    // Sort children by order
+    // Sort: folders first, then by title
+    const isFolder = (n: TreeNode) => n.meta.tags?.includes('__folder');
     const sortChildren = (nodes: TreeNode[]) => {
-      nodes.sort((a, b) => a.meta.order - b.meta.order);
+      nodes.sort((a, b) => {
+        const aFolder = isFolder(a) ? 0 : 1;
+        const bFolder = isFolder(b) ? 0 : 1;
+        if (aFolder !== bFolder) return aFolder - bFolder;
+        return a.meta.title.localeCompare(b.meta.title);
+      });
       for (const node of nodes) {
         sortChildren(node.children);
       }
@@ -48,8 +54,11 @@ export class TreeService {
       docMap.set(doc.id, doc);
     }
     const ancestors: DocumentMeta[] = [];
+    const visited = new Set<string>();
     let current = docMap.get(id);
     while (current?.parent) {
+      if (visited.has(current.parent)) break; // Prevent circular reference loop
+      visited.add(current.parent);
       const parent = docMap.get(current.parent);
       if (!parent) break;
       ancestors.unshift(parent);

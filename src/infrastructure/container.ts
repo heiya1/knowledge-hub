@@ -33,18 +33,12 @@ export function getContainer(): Container {
 }
 
 export function updateWorkspacePath(fs: IFileSystem, workspacePath: string): void {
-  const documentService = new DocumentService(fs, workspacePath);
-  const treeService = new TreeService();
-  const searchService = new SearchService();
-  const gitService = new IsomorphicGitService();
-  if (container) {
-    container.fs = fs;
-    container.workspacePath = workspacePath;
-    container.documentService = documentService;
-    container.treeService = treeService;
-    container.searchService = searchService;
-    container.gitService = gitService;
-  } else {
-    container = { fs, workspacePath, documentService, treeService, searchService, gitService };
+  if (!container) {
+    initContainer(fs, workspacePath);
+    return;
   }
+  container.fs = fs;
+  container.workspacePath = workspacePath;
+  container.documentService = new DocumentService(fs, workspacePath);
+  container.gitService = new IsomorphicGitService();
 }

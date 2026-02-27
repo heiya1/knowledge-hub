@@ -1,33 +1,29 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { Plus, X, Columns2, PanelRight } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
+import { Tooltip } from '../common/Tooltip';
 
 /**
- * Check if Tauri shell APIs are available.
- * Returns the Command class if available, null otherwise.
+ * Try to import the PTY spawn function from tauri-pty.
  */
-async function getTauriShellCommand(): Promise<typeof import('@tauri-apps/plugin-shell').Command | null> {
+async function getPtySpawn(): Promise<typeof import('tauri-pty').spawn | null> {
   try {
-    const mod = await import('@tauri-apps/plugin-shell');
-    return mod.Command;
+    const mod = await import('tauri-pty');
+    return mod.spawn;
   } catch {
     return null;
   }
 }
 
-/** Detect the current OS-level theme (dark/light) */
-function isDarkMode(): boolean {
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-}
-
-/** Check if explicitly dark class is present, or auto-dark via OS */
+/** Check if app is in dark mode */
 function isAppDarkMode(): boolean {
   const root = document.documentElement;
   if (root.classList.contains('dark')) return true;
   if (root.classList.contains('light')) return false;
-  return isDarkMode();
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 }
 
 /** xterm.js theme that matches our CSS variables */
@@ -88,293 +84,363 @@ interface TerminalProps {
   workspacePath: string;
 }
 
+interface TermInst {
+  id: string;
+  label: string;
+  groupId: string;
+}
+
+let termCounter = 0;
+let groupCounter = 0;
+
 const MIN_HEIGHT = 100;
 const DEFAULT_HEIGHT = 250;
 const MAX_VH_RATIO = 0.5;
 
-export function Terminal({ workspacePath }: TerminalProps) {
-  const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
-  const [height, setHeight] = useState(DEFAULT_HEIGHT);
-  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
-
-  const termRef = useRef<HTMLDivElement>(null);
+/* ---------- Single terminal instance ---------- */
+function TerminalInstance({
+  workspacePath,
+  isActive,
+  onFocus,
+  ptySpawn,
+}: {
+  workspacePath: string;
+  isActive: boolean;
+  onFocus: () => void;
+  ptySpawn: typeof import('tauri-pty').spawn;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const commandBufferRef = useRef('');
-  const cwdRef = useRef(workspacePath);
-  const isRunningRef = useRef(false);
-  const CommandRef = useRef<typeof import('@tauri-apps/plugin-shell').Command | null>(null);
-  const resizingRef = useRef(false);
-  const resizeStartYRef = useRef(0);
-  const resizeStartHeightRef = useRef(0);
 
-  // Update cwd when workspace path changes
+  // Initialize xterm + PTY on mount
   useEffect(() => {
-    cwdRef.current = workspacePath;
-  }, [workspacePath]);
-
-  // Check availability on mount
-  useEffect(() => {
-    getTauriShellCommand().then((cmd) => {
-      CommandRef.current = cmd;
-      setIsAvailable(cmd !== null);
-    });
-  }, []);
-
-  // Keyboard shortcut: Ctrl+`
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === '`') {
-        e.preventDefault();
-        setIsOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  /** Write a prompt line to the terminal */
-  const writePrompt = useCallback(() => {
-    const xterm = xtermRef.current;
-    if (!xterm) return;
-    // Show a short directory name
-    const dirName = cwdRef.current.split('/').pop() || cwdRef.current;
-    xterm.write(`\r\n\x1b[36m${dirName}\x1b[0m $ `);
-  }, []);
-
-  /** Execute a command via Tauri shell plugin */
-  const executeCommand = useCallback(async (command: string) => {
-    const xterm = xtermRef.current;
-    const Command = CommandRef.current;
-    if (!xterm || !Command) return;
-
-    const trimmed = command.trim();
-    if (!trimmed) {
-      writePrompt();
-      return;
-    }
-
-    // Handle built-in "cd" command
-    if (trimmed === 'cd' || trimmed.startsWith('cd ')) {
-      const parts = trimmed.split(/\s+/);
-      const target = parts[1];
-      if (!target || target === '~') {
-        // cd with no argument or ~ : go to home
-        try {
-          const result = await Command.create('exec-sh', ['-c', 'echo $HOME']).execute();
-          const home = result.stdout.trim();
-          if (home) cwdRef.current = home;
-        } catch {
-          // fallback: stay in current dir
-        }
-      } else {
-        // Resolve relative or absolute path
-        let newPath: string;
-        if (target.startsWith('/')) {
-          newPath = target;
-        } else {
-          newPath = `${cwdRef.current}/${target}`;
-        }
-        // Normalize the path using shell
-        try {
-          const result = await Command.create('exec-sh', [
-            '-c',
-            `cd "${newPath}" && pwd`,
-          ]).execute();
-          const resolved = result.stdout.trim();
-          if (resolved) {
-            cwdRef.current = resolved;
-          } else {
-            // stderr likely has an error
-            const errMsg = result.stderr.trim();
-            if (errMsg) {
-              xterm.write(`\r\n\x1b[31m${errMsg}\x1b[0m`);
-            }
-          }
-        } catch (err) {
-          xterm.write(`\r\n\x1b[31mcd: ${String(err)}\x1b[0m`);
-        }
-      }
-      writePrompt();
-      return;
-    }
-
-    // Handle "clear"
-    if (trimmed === 'clear') {
-      xterm.clear();
-      xterm.write('\x1b[2J\x1b[H'); // clear screen + cursor home
-      writePrompt();
-      return;
-    }
-
-    isRunningRef.current = true;
-
-    try {
-      const result = await Command.create('exec-sh', [
-        '-c',
-        `cd "${cwdRef.current}" && ${trimmed}`,
-      ]).execute();
-
-      if (result.stdout) {
-        // Process stdout, converting \n to \r\n for xterm
-        const lines = result.stdout.replace(/\r?\n/g, '\r\n');
-        xterm.write(`\r\n${lines}`);
-      }
-
-      if (result.stderr) {
-        const lines = result.stderr.replace(/\r?\n/g, '\r\n');
-        xterm.write(`\r\n\x1b[31m${lines}\x1b[0m`);
-      }
-
-      if (result.code !== 0 && result.code !== null) {
-        xterm.write(`\r\n\x1b[33m(exit code: ${result.code})\x1b[0m`);
-      }
-    } catch (err) {
-      xterm.write(`\r\n\x1b[31mError: ${String(err)}\x1b[0m`);
-    }
-
-    isRunningRef.current = false;
-    writePrompt();
-  }, [writePrompt]);
-
-  // Initialize xterm.js when terminal is opened
-  useEffect(() => {
-    if (!isOpen || !termRef.current || isAvailable === null) return;
-
-    // If xterm already exists, just refit
-    if (xtermRef.current) {
-      setTimeout(() => fitAddonRef.current?.fit(), 0);
-      return;
-    }
+    if (!containerRef.current) return;
 
     const dark = isAppDarkMode();
+    const theme = getXtermTheme(dark);
     const xterm = new XTerm({
       cursorBlink: true,
       fontSize: 13,
       fontFamily: "'SFMono-Regular', Menlo, Monaco, 'Courier New', monospace",
-      theme: getXtermTheme(dark),
+      theme,
       allowProposedApi: true,
-      convertEol: false,
+      convertEol: true,
       scrollback: 5000,
     });
 
+    // Match container background to xterm theme to avoid border gap
+    containerRef.current.style.backgroundColor = theme.background;
+
     const fitAddon = new FitAddon();
     xterm.loadAddon(fitAddon);
-    xterm.open(termRef.current);
-
-    // Small delay to let DOM settle before fitting
+    xterm.open(containerRef.current);
     setTimeout(() => fitAddon.fit(), 10);
 
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
 
-    if (isAvailable) {
-      // Print welcome banner
-      const dirName = cwdRef.current.split('/').pop() || cwdRef.current;
-      xterm.write(`\x1b[1m${t('terminal.title')}\x1b[0m - ${cwdRef.current}\r\n`);
-      xterm.write(`\x1b[36m${dirName}\x1b[0m $ `);
-
-      // Handle keyboard input
-      xterm.onData((data) => {
-        if (isRunningRef.current) return; // Ignore input while command is running
-
-        for (const char of data) {
-          if (char === '\r') {
-            // Enter key: execute the command
-            const cmd = commandBufferRef.current;
-            commandBufferRef.current = '';
-            executeCommand(cmd);
-          } else if (char === '\x7f' || char === '\b') {
-            // Backspace
-            if (commandBufferRef.current.length > 0) {
-              commandBufferRef.current = commandBufferRef.current.slice(0, -1);
-              xterm.write('\b \b');
-            }
-          } else if (char === '\x03') {
-            // Ctrl+C
-            commandBufferRef.current = '';
-            xterm.write('^C');
-            writePrompt();
-          } else if (char === '\x0c') {
-            // Ctrl+L (clear screen)
-            xterm.clear();
-            xterm.write('\x1b[2J\x1b[H');
-            writePrompt();
-          } else if (char >= ' ') {
-            // Printable character
-            commandBufferRef.current += char;
-            xterm.write(char);
-          }
-        }
+    // Spawn PTY process
+    const shell = 'bash';
+    let pty: ReturnType<typeof ptySpawn>;
+    try {
+      pty = ptySpawn(shell, [], {
+        cols: xterm.cols,
+        rows: xterm.rows,
+        cwd: workspacePath,
+        env: { PROMPT_COMMAND: 'PS1="\\[\\033[32m\\]\\u\\[\\033[0m\\]:\\[\\033[36m\\]\\W\\[\\033[0m\\] $ "' },
       });
-    } else {
-      xterm.write(`\x1b[33m${t('terminal.notAvailable')}\x1b[0m\r\n`);
+    } catch (err) {
+      xterm.write(`\x1b[31mFailed to spawn PTY: ${String(err)}\x1b[0m\r\n`);
+      return () => { xterm.dispose(); xtermRef.current = null; fitAddonRef.current = null; };
     }
 
-    return () => {
-      // Don't dispose on unmount if we're just toggling - only on full cleanup
-    };
-  }, [isOpen, isAvailable, executeCommand, writePrompt, t]);
-
-  // Watch for theme changes and update xterm colors
-  useEffect(() => {
-    if (!xtermRef.current) return;
-
-    const observer = new MutationObserver(() => {
-      const dark = isAppDarkMode();
-      xtermRef.current?.options && (xtermRef.current.options.theme = getXtermTheme(dark));
+    // PTY → xterm (output)
+    // tauri-pty invoke returns data as number[] from Rust, convert to string
+    const decoder = new TextDecoder();
+    const dataDisposable = pty.onData((data: Uint8Array | number[]) => {
+      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+      xterm.write(decoder.decode(bytes, { stream: true }));
     });
 
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
+    // xterm → PTY (input)
+    const inputDisposable = xterm.onData((data: string) => {
+      pty.write(data);
     });
 
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleMediaChange = () => {
-      const dark = isAppDarkMode();
-      if (xtermRef.current?.options) {
-        xtermRef.current.options.theme = getXtermTheme(dark);
-      }
-    };
-    mediaQuery.addEventListener('change', handleMediaChange);
+    // Resize sync
+    const resizeDisposable = xterm.onResize(({ cols, rows }) => {
+      pty.resize(cols, rows);
+    });
+
+    // PTY exit
+    const exitDisposable = pty.onExit(({ exitCode }) => {
+      xterm.write(`\r\n\x1b[33m[Process exited with code ${exitCode}]\x1b[0m\r\n`);
+    });
 
     return () => {
-      observer.disconnect();
-      mediaQuery.removeEventListener('change', handleMediaChange);
-    };
-  }, [isOpen]);
-
-  // Refit on height or open state change
-  useEffect(() => {
-    if (isOpen && fitAddonRef.current) {
-      setTimeout(() => fitAddonRef.current?.fit(), 0);
-    }
-  }, [isOpen, height]);
-
-  // Refit on window resize
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleResize = () => {
-      fitAddonRef.current?.fit();
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isOpen]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      xtermRef.current?.dispose();
+      dataDisposable.dispose();
+      inputDisposable.dispose();
+      resizeDisposable.dispose();
+      exitDisposable.dispose();
+      pty.kill();
+      xterm.dispose();
       xtermRef.current = null;
       fitAddonRef.current = null;
     };
+  }, [ptySpawn, workspacePath]);
+
+  // Focus when active
+  useEffect(() => {
+    if (isActive) xtermRef.current?.focus();
+  }, [isActive]);
+
+  // Theme sync
+  useEffect(() => {
+    const update = () => {
+      const theme = getXtermTheme(isAppDarkMode());
+      if (xtermRef.current?.options) {
+        xtermRef.current.options.theme = theme;
+      }
+      if (containerRef.current) {
+        containerRef.current.style.backgroundColor = theme.background;
+      }
+    };
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', update);
+    return () => { observer.disconnect(); mq.removeEventListener('change', update); };
   }, []);
 
-  // Resize handle mouse events
+  // ResizeObserver for refitting
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new ResizeObserver(() => {
+      setTimeout(() => fitAddonRef.current?.fit(), 0);
+    });
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div
+      className="flex-1 min-w-0 overflow-hidden"
+      onClick={onFocus}
+    >
+      <div ref={containerRef} className="h-full" />
+    </div>
+  );
+}
+
+/* ---------- Resizable split group ---------- */
+function SplitTerminalGroup({
+  items,
+  activeId,
+  workspacePath,
+  ptySpawn,
+  onSelect,
+}: {
+  items: TermInst[];
+  activeId: string;
+  workspacePath: string;
+  ptySpawn: typeof import('tauri-pty').spawn;
+  onSelect: (id: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Store ratios as equal splits initially; keyed by sorted item ids
+  const [ratios, setRatios] = useState<number[]>(() => items.map(() => 1 / items.length));
+  const resizingIdx = useRef<number | null>(null);
+
+  // Reset ratios when item count changes
+  useEffect(() => {
+    setRatios(items.map(() => 1 / items.length));
+  }, [items.length]);
+
+  const handleMouseDown = useCallback((idx: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingIdx.current = idx;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (resizingIdx.current === null || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = (ev.clientX - rect.left) / rect.width;
+      const i = resizingIdx.current;
+
+      setRatios(prev => {
+        const next = [...prev];
+        // Sum of ratios before the handle
+        const sumBefore = next.slice(0, i).reduce((a, b) => a + b, 0);
+        // Sum of the two panels being resized
+        const sumPair = next[i] + next[i + 1];
+        const minRatio = 0.1;
+        const newLeft = Math.max(minRatio, Math.min(sumBefore + sumPair - minRatio, x)) - sumBefore;
+        next[i] = newLeft;
+        next[i + 1] = sumPair - newLeft;
+        return next;
+      });
+    };
+
+    const handleMouseUp = () => {
+      resizingIdx.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, []);
+
+  if (items.length === 1) {
+    return (
+      <TerminalInstance
+        workspacePath={workspacePath}
+        isActive={items[0].id === activeId}
+        onFocus={() => onSelect(items[0].id)}
+        ptySpawn={ptySpawn}
+      />
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="flex h-full w-full">
+      {items.map((inst, idx) => (
+        <Fragment key={inst.id}>
+          <div
+            className="min-w-0 overflow-hidden"
+            style={{ width: `${ratios[idx] * 100}%` }}
+          >
+            <TerminalInstance
+              workspacePath={workspacePath}
+              isActive={inst.id === activeId}
+              onFocus={() => onSelect(inst.id)}
+              ptySpawn={ptySpawn}
+            />
+          </div>
+          {idx < items.length - 1 && (
+            <div
+              className="w-1 shrink-0 cursor-col-resize bg-content-border hover:bg-accent/50 active:bg-accent transition-colors"
+              onMouseDown={(e) => handleMouseDown(idx, e)}
+            />
+          )}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Terminal Panel ---------- */
+export function Terminal({ workspacePath }: TerminalProps) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const [height, setHeight] = useState(DEFAULT_HEIGHT);
+  const [instances, setInstances] = useState<TermInst[]>([]);
+  const [activeId, setActiveId] = useState('');
+  const [showList, setShowList] = useState(false);
+  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const ptySpawnRef = useRef<typeof import('tauri-pty').spawn | null>(null);
+  const resizingRef = useRef(false);
+  const resizeStartYRef = useRef(0);
+  const resizeStartHeightRef = useRef(0);
+
+  // Derived state
+  const activeInst = useMemo(() => instances.find(i => i.id === activeId), [instances, activeId]);
+  const activeGroupId = activeInst?.groupId ?? '';
+  const visibleInstances = useMemo(
+    () => instances.filter(i => i.groupId === activeGroupId),
+    [instances, activeGroupId]
+  );
+  // Grouped instances for the right panel
+  const groupedInstances = useMemo(() => {
+    const groups: { groupId: string; items: TermInst[] }[] = [];
+    const seen = new Set<string>();
+    for (const inst of instances) {
+      if (!seen.has(inst.groupId)) {
+        seen.add(inst.groupId);
+        groups.push({ groupId: inst.groupId, items: instances.filter(i => i.groupId === inst.groupId) });
+      }
+    }
+    return groups;
+  }, [instances]);
+
+  // Check availability on mount
+  useEffect(() => {
+    getPtySpawn().then(spawn => {
+      ptySpawnRef.current = spawn;
+      setIsAvailable(spawn !== null);
+    });
+  }, []);
+
+  // Ensure at least one instance when opened
+  useEffect(() => {
+    if (isOpen && instances.length === 0) {
+      const id = `term-${++termCounter}`;
+      const gid = `group-${++groupCounter}`;
+      setInstances([{ id, label: String(termCounter), groupId: gid }]);
+      setActiveId(id);
+    }
+  }, [isOpen, instances.length]);
+
+  // Keyboard shortcut: Ctrl+` and custom event: toggle-terminal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '`') {
+        e.preventDefault();
+        setIsOpen(prev => !prev);
+      }
+    };
+    const handleToggle = () => setIsOpen(prev => !prev);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('toggle-terminal', handleToggle);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('toggle-terminal', handleToggle);
+    };
+  }, []);
+
+  // "+" → New terminal in a NEW group (no split)
+  const addInstance = useCallback(() => {
+    const id = `term-${++termCounter}`;
+    const gid = `group-${++groupCounter}`;
+    setInstances(prev => [...prev, { id, label: String(termCounter), groupId: gid }]);
+    setActiveId(id);
+  }, []);
+
+  // "Split" → New terminal in the SAME group as active
+  const splitInstance = useCallback(() => {
+    const gid = activeGroupId || `group-${++groupCounter}`;
+    const id = `term-${++termCounter}`;
+    setInstances(prev => [...prev, { id, label: String(termCounter), groupId: gid }]);
+    setActiveId(id);
+  }, [activeGroupId]);
+
+  const closeInstance = useCallback((instId: string) => {
+    const inst = instances.find(i => i.id === instId);
+    if (!inst) return;
+    const next = instances.filter(i => i.id !== instId);
+    if (next.length === 0) {
+      setInstances([]);
+      setActiveId('');
+      setIsOpen(false);
+      return;
+    }
+    setInstances(next);
+    if (activeId === instId) {
+      // Prefer same group, then fallback to last
+      const sameGroup = next.filter(i => i.groupId === inst.groupId);
+      setActiveId(sameGroup.length > 0 ? sameGroup[sameGroup.length - 1].id : next[next.length - 1].id);
+    }
+  }, [instances, activeId]);
+
+  const selectInstance = useCallback((instId: string) => {
+    setActiveId(instId);
+  }, []);
+
+  // Resize handle
   const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     resizingRef.current = true;
@@ -405,40 +471,138 @@ export function Terminal({ workspacePath }: TerminalProps) {
 
   if (!isOpen) return null;
 
+  const actionBtnClass = 'flex items-center justify-center w-6 h-6 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors';
+
   return (
     <div
-      className="flex flex-col border-t border-[var(--color-border)] bg-[var(--color-bg-sidebar)]"
+      className="flex flex-col border-t border-border bg-bg-main"
       style={{ height: `${height}px`, minHeight: `${MIN_HEIGHT}px`, maxHeight: '50vh' }}
     >
       {/* Resize handle */}
       <div
-        className="h-1 cursor-row-resize hover:bg-[var(--color-accent)] transition-colors flex-shrink-0"
+        className="h-1 cursor-row-resize hover:bg-accent transition-colors shrink-0"
         onMouseDown={handleResizeMouseDown}
         role="separator"
         aria-orientation="horizontal"
-        aria-label="Resize terminal"
       />
 
       {/* Header bar */}
-      <div className="flex items-center justify-between px-3 py-1 text-xs text-[var(--color-text-secondary)] bg-[var(--color-bg-sidebar)] border-b border-[var(--color-border)] flex-shrink-0">
-        <span className="font-medium text-[var(--color-text-primary)]">
-          {t('terminal.title')}
-        </span>
-        <button
-          onClick={() => setIsOpen(false)}
-          className="hover:text-[var(--color-text-primary)] transition-colors px-1"
-          title={t('common.close')}
-        >
-          &times;
-        </button>
+      <div className="flex items-center px-2 py-0.5 text-xs bg-bg-main border-b border-border shrink-0">
+        {/* Current group tabs */}
+        <div className="flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto">
+          {visibleInstances.map(inst => (
+            <div
+              key={inst.id}
+              className={`group flex items-center gap-0.5 px-2 py-1 rounded text-xs whitespace-nowrap transition-colors cursor-pointer ${
+                inst.id === activeId
+                  ? 'bg-bg-main text-text-primary'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+              }`}
+              onClick={() => selectInstance(inst.id)}
+            >
+              <span>{t('terminal.title')} {inst.label}</span>
+              {visibleInstances.length > 1 && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); closeInstance(inst.id); }}
+                  className="w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-border transition-all"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        {/* Action buttons */}
+        <div className="flex items-center gap-0.5 shrink-0 ml-1">
+          <Tooltip content={t('terminal.newTerminal')}>
+            <button onClick={addInstance} className={actionBtnClass}>
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip content={t('terminal.splitTerminal')}>
+            <button onClick={splitInstance} className={actionBtnClass}>
+              <Columns2 className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip content={t('common.close')}>
+            <button onClick={() => setIsOpen(false)} className={actionBtnClass}>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+          <div className="w-px h-4 bg-border mx-0.5" />
+          <Tooltip content={t('terminal.terminalList')}>
+            <button
+              onClick={() => setShowList(prev => !prev)}
+              className={`${actionBtnClass} ${showList ? 'bg-bg-hover text-text-primary' : ''}`}
+            >
+              <PanelRight className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+        </div>
       </div>
 
-      {/* Terminal content */}
-      <div
-        ref={termRef}
-        className="flex-1 overflow-hidden"
-        style={{ padding: '4px' }}
-      />
+      {/* Content: terminal area + optional right list */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* Terminal instances area */}
+        <div className="flex-1 relative min-h-0 overflow-hidden">
+          {isAvailable === false && (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-text-secondary">
+              {t('terminal.notAvailable')}
+            </div>
+          )}
+          {isAvailable && ptySpawnRef.current && groupedInstances.map(group => {
+            const isActiveGroup = group.groupId === activeGroupId;
+            return (
+              <div
+                key={group.groupId}
+                className={`absolute inset-0 ${isActiveGroup ? 'z-10' : 'z-0 pointer-events-none opacity-0'}`}
+              >
+                <SplitTerminalGroup
+                  items={group.items}
+                  activeId={activeId}
+                  workspacePath={workspacePath}
+                  ptySpawn={ptySpawnRef.current!}
+                  onSelect={selectInstance}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right panel: terminal list */}
+        {showList && (
+          <div className="w-44 shrink-0 border-l border-border bg-bg-main overflow-y-auto">
+            {groupedInstances.map((group) => (
+              <div key={group.groupId}>
+                {group.items.map((inst, idx) => (
+                  <div
+                    key={inst.id}
+                    onClick={() => selectInstance(inst.id)}
+                    className={`group flex items-center gap-1.5 px-2 py-1.5 text-xs cursor-pointer transition-colors ${
+                      inst.id === activeId
+                        ? 'bg-sidebar-selected text-text-primary'
+                        : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+                    }`}
+                  >
+                    {group.items.length > 1 && (
+                      <span className="text-[10px] text-text-secondary w-3 shrink-0">
+                        {idx === 0 ? '┌' : idx === group.items.length - 1 ? '└' : '├'}
+                      </span>
+                    )}
+                    <span className="flex-1 truncate">{t('terminal.title')} {inst.label}</span>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); closeInstance(inst.id); }}
+                      className="w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-border transition-all shrink-0"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

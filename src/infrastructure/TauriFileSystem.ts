@@ -1,6 +1,6 @@
-import { readTextFile, writeTextFile, readDir, exists, mkdir, remove, rename, copyFile } from '@tauri-apps/plugin-fs';
+import { readTextFile, writeTextFile, readDir, exists, mkdir, remove, rename, stat } from '@tauri-apps/plugin-fs';
 import { appDataDir } from '@tauri-apps/api/path';
-import type { IFileSystem, DirEntry } from '../core/interfaces/IFileSystem';
+import type { IFileSystem, DirEntry, FileStat } from '../core/interfaces/IFileSystem';
 
 export class TauriFileSystem implements IFileSystem {
   async readTextFile(path: string): Promise<string> {
@@ -40,11 +40,17 @@ export class TauriFileSystem implements IFileSystem {
     await rename(oldPath, newPath);
   }
 
-  async copyFile(src: string, dest: string): Promise<void> {
-    await copyFile(src, dest);
+  async stat(path: string): Promise<FileStat> {
+    const info = await stat(path);
+    return {
+      size: info.size,
+      mtime: info.mtime,
+      birthtime: info.birthtime,
+    };
   }
 }
 
 export async function getAppDataPath(): Promise<string> {
-  return appDataDir();
+  const dir = await appDataDir();
+  return dir.endsWith('/') ? dir : `${dir}/`;
 }

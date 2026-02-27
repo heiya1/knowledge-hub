@@ -1,39 +1,63 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigationStore } from "./stores/navigationStore";
 import { useWorkspaceStore } from "./stores/workspaceStore";
 import { useDocumentStore } from "./stores/documentStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useGitStore } from "./stores/gitStore";
+import { useTabStore, collectLeafDocIds } from "./stores/tabStore";
+import { useEditorStore } from "./stores/editorStore";
+import { useFavoritesStore } from "./stores/favoritesStore";
 import { WelcomeScreen } from "./components/workspace/WelcomeScreen";
 import { AppShell } from "./components/layout/AppShell";
 import { SearchModal } from "./components/search/SearchModal";
 import { SettingsView } from "./components/settings/SettingsView";
 import { ConfirmDialog } from "./components/common/ConfirmDialog";
 import { RenameDialog } from "./components/common/RenameDialog";
+import { CreateItemDialog } from "./components/common/CreateItemDialog";
+import { TemplateDialog } from "./components/common/TemplateDialog";
 import { TrashPanel } from "./components/sidebar/TrashPanel";
+import { ImageCleanupView } from "./components/imageCleanup/ImageCleanupView";
 import { ToastContainer, showToast } from "./components/common/Toast";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
+import { TitleBar } from "./components/layout/TitleBar";
+import { HelpPage } from "./components/help/HelpPage";
 import { TauriFileSystem, getAppDataPath } from "./infrastructure/TauriFileSystem";
 import { fetchGitUserFromToken, readSystemGitConfig } from "./infrastructure/GitProviderApi";
 import { initContainer, getContainer, updateWorkspacePath } from "./infrastructure/container";
 import { generateId } from "./core/utils/id";
-import { parseFrontmatter } from "./core/utils/frontmatter";
-import type { Document } from "./core/models/Document";
+import type { Document, DocumentMeta } from "./core/models/Document";
 import type { SearchResult } from "./core/services/SearchService";
+import type { PageTemplate } from "./core/templates";
 
 const fs = new TauriFileSystem();
 
 /** Number of days before trash items are auto-deleted */
 const TRASH_AUTO_DELETE_DAYS = 30;
 
+/** Convert a name into a URL-safe slug */
+function toSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+/** Persist workspace list and active workspace to workspaces.json */
+async function persistWorkspaces(
+  appDataPath: string,
+  workspaces: { id: string; name: string; path: string; remoteUrl?: string }[],
+  activeWorkspaceId: string,
+): Promise<void> {
+  await fs.writeTextFile(
+    `${appDataPath}workspaces.json`,
+    JSON.stringify({ workspaces, activeWorkspaceId })
+  );
+}
+
 function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { screen, setScreen } = useNavigationStore();
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [addWsDialogOpen, setAddWsDialogOpen] = useState(false);
+  const [deleteWsDialog, setDeleteWsDialog] = useState<{ isOpen: boolean; id: string; name: string }>({ isOpen: false, id: '', name: '' });
 
   // Delete confirmation dialog state
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -56,6 +80,7 @@ function App() {
     setWorkspaces,
     setActiveWorkspace,
     addWorkspace,
+    removeWorkspace,
     getActiveWorkspace,
   } = useWorkspaceStore();
   const {
@@ -67,7 +92,7 @@ function App() {
     setTree,
     setCurrentDocumentId,
     setCurrentDocument,
-    setLoading: setDocLoading,
+    setBacklinkIndex,
   } = useDocumentStore();
   const { gitAuthorName, gitAuthorEmail, gitToken, autoSync, syncInterval } = useSettingsStore();
   const { setStatuses, setLog, setSyncing } = useGitStore();
@@ -113,9 +138,20 @@ function App() {
         // If git author is not set, try to read from ~/.gitconfig
         const { gitAuthorName: savedName } = useSettingsStore.getState();
         if (!savedName) {
-          const sysUser = await readSystemGitConfig(fs);
+          const sysUser = await readSystemGitConfig();
           if (sysUser) {
             useSettingsStore.getState().setGitAuthor(sysUser.name, sysUser.email);
+          }
+        }
+
+        // Load favorites
+        const favoritesFile = `${appDataPath}favorites.json`;
+        if (await fs.exists(favoritesFile)) {
+          try {
+            const raw = await fs.readTextFile(favoritesFile);
+            useFavoritesStore.getState().loadFromStorage(JSON.parse(raw));
+          } catch {
+            // Ignore invalid favorites file
           }
         }
 
@@ -128,6 +164,25 @@ function App() {
           if (data.activeWorkspaceId) {
             setActiveWorkspace(data.activeWorkspaceId);
             setScreen("editor");
+
+            // Restore tab state for this workspace
+            const tabsFile = `${appDataPath}tabs-${data.activeWorkspaceId}.json`;
+            if (await fs.exists(tabsFile)) {
+              try {
+                const tabsRaw = await fs.readTextFile(tabsFile);
+                const tabsData = JSON.parse(tabsRaw);
+                if (tabsData.paneLayout) {
+                  useTabStore.getState().loadTabState(tabsData);
+                  // Set the active doc to the restored active tab
+                  const activeDocId = useTabStore.getState().getActiveDocId();
+                  if (activeDocId) {
+                    setCurrentDocumentId(activeDocId);
+                  }
+                }
+              } catch {
+                // Ignore invalid tabs file
+              }
+            }
           }
         } else {
           setWorkspaces([]);
@@ -137,6 +192,21 @@ function App() {
       }
     })();
   }, []);
+
+  // Apply theme and language from settings (on load and when they change)
+  const theme = useSettingsStore((s) => s.theme);
+  const language = useSettingsStore((s) => s.language);
+  useEffect(() => {
+    document.documentElement.classList.remove('light', 'dark');
+    if (theme !== 'auto') {
+      document.documentElement.classList.add(theme);
+    }
+  }, [theme]);
+  useEffect(() => {
+    if (language !== 'auto') {
+      i18n.changeLanguage(language);
+    }
+  }, [language, i18n]);
 
   // Persist settings when they change
   useEffect(() => {
@@ -153,12 +223,44 @@ function App() {
           gitToken: state.gitToken,
           autoSync: state.autoSync,
           syncInterval: state.syncInterval,
-          aiProvider: state.aiProvider,
-          aiApiKey: state.aiApiKey,
-          ollamaModel: state.ollamaModel,
-          ollamaUrl: state.ollamaUrl,
         };
         await fs.writeTextFile(`${appDataPath}settings.json`, JSON.stringify(data, null, 2));
+      } catch {
+        // Silently ignore persistence errors
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // Persist tab state when it changes (debounced)
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = useTabStore.subscribe(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(async () => {
+        try {
+          const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+          if (!wsId) return;
+          const appDataPath = await getAppDataPath();
+          const data = useTabStore.getState().serializeTabState();
+          await fs.writeTextFile(`${appDataPath}tabs-${wsId}.json`, JSON.stringify(data));
+        } catch {
+          // Silently ignore persistence errors
+        }
+      }, 500);
+    });
+    return () => { unsubscribe(); if (timer) clearTimeout(timer); };
+  }, []);
+
+  // Persist favorites when they change
+  useEffect(() => {
+    const unsubscribe = useFavoritesStore.subscribe(async (state) => {
+      try {
+        const appDataPath = await getAppDataPath();
+        await fs.writeTextFile(`${appDataPath}favorites.json`, JSON.stringify({
+          favorites: state.favorites,
+          recentPages: state.recentPages,
+        }));
       } catch {
         // Silently ignore persistence errors
       }
@@ -173,7 +275,6 @@ function App() {
     if (!ws) return;
 
     (async () => {
-      setDocLoading(true);
       try {
         updateWorkspacePath(fs, ws.path);
         const container = getContainer();
@@ -182,6 +283,8 @@ function App() {
         const builtTree = container.treeService.buildTree(docs);
         setTree(builtTree);
         container.searchService.rebuild(docs);
+        // Build backlink index
+        container.documentService.buildBacklinkIndex().then(setBacklinkIndex).catch(() => {});
         // Load git status
         await refreshGitStatus();
         await refreshGitLog();
@@ -189,9 +292,7 @@ function App() {
         // Auto-cleanup: delete trash items older than 30 days
         await cleanupOldTrashItems(ws.path);
       } catch (e) {
-        showToast("error", `Failed to load documents: ${e}`);
-      } finally {
-        setDocLoading(false);
+        showToast("error", t('toast.loadDocsFailed', { error: String(e) }));
       }
     })();
   }, [activeWorkspaceId]);
@@ -212,16 +313,13 @@ function App() {
 
         try {
           const filePath = `${trashDir}/${entry.name}`;
-          const raw = await fs.readTextFile(filePath);
-          const doc = parseFrontmatter(raw);
-
-          // Use updatedAt as the deletion timestamp (it was set when the page was last saved before deletion)
-          const deletedAt = new Date(doc.updatedAt).getTime();
+          const stat = await fs.stat(filePath);
+          const deletedAt = stat.mtime?.getTime() ?? now;
           if (now - deletedAt > maxAge) {
             await fs.removeFile(filePath);
           }
         } catch {
-          // Skip files that can't be parsed; don't delete them to be safe
+          // Skip files that can't be read; don't delete them to be safe
         }
       }
     } catch {
@@ -229,33 +327,77 @@ function App() {
     }
   }, []);
 
-  // Load current document
+  // Load current document (with cancellation for rapid switching)
   useEffect(() => {
     if (!currentDocumentId || !activeWorkspaceId) {
       setCurrentDocument(null);
       return;
     }
+    let cancelled = false;
+    const docId = currentDocumentId;
     (async () => {
       try {
         const container = getContainer();
-        const doc = await container.documentService.get(currentDocumentId);
-        setCurrentDocument(doc);
+        const doc = await container.documentService.get(docId);
+        if (!cancelled) {
+          setCurrentDocument(doc);
+          setDocumentMap(prev => ({ ...prev, [docId]: doc }));
+        }
       } catch (e) {
-        showToast("error", `Failed to load document: ${e}`);
-        setCurrentDocument(null);
+        if (!cancelled) {
+          showToast("error", t('toast.loadDocFailed', { error: String(e) }));
+          setCurrentDocument(null);
+        }
       }
     })();
+    return () => { cancelled = true; };
   }, [currentDocumentId]);
+
+  // Document map for all visible pane leaves
+  const paneLayout = useTabStore(state => state.paneLayout);
+  const [documentMap, setDocumentMap] = useState<Record<string, Document>>({});
+
+  // Dev mode: expose setDocumentMap for browser testing
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (window as unknown as Record<string, unknown>).__setDocumentMap = setDocumentMap;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    const docIds = collectLeafDocIds(paneLayout);
+    const uniqueIds = [...new Set(docIds)];
+    if (uniqueIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const container = getContainer();
+      const loaded: Record<string, Document> = {};
+      for (const id of uniqueIds) {
+        try {
+          loaded[id] = await container.documentService.get(id);
+        } catch { /* skip */ }
+      }
+      if (!cancelled) {
+        setDocumentMap(prev => ({ ...prev, ...loaded }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [paneLayout, activeWorkspaceId]);
 
   const handleCreateWorkspace = useCallback(
     async (repoName: string, displayName: string, token?: string) => {
       try {
         const appDataPath = await getAppDataPath();
-        const slug = repoName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-        const wsPath = `${appDataPath}workspaces/${slug}`;
+        const wsPath = `${appDataPath}workspaces/${toSlug(repoName)}`;
 
-        // Create directories
-        await fs.createDir(`${wsPath}/pages`, { recursive: true });
+        // Check for duplicate workspace path
+        if (workspaces.some(w => w.path === wsPath)) {
+          showToast("error", t('toast.workspaceAlreadyExists', { name: displayName }));
+          return;
+        }
+
+        // Create workspace directory
         await fs.createDir(`${wsPath}/assets/images`, { recursive: true });
         await fs.createDir(`${wsPath}/assets/diagrams`, { recursive: true });
 
@@ -282,17 +424,27 @@ function App() {
         }
         await container.gitService.commit(wsPath, 'Initial commit', initAuthor);
 
+        // Save current workspace's tab state BEFORE clearing
+        const currentWsId = useWorkspaceStore.getState().activeWorkspaceId;
+        if (currentWsId) {
+          const tabData = useTabStore.getState().serializeTabState();
+          await fs.writeTextFile(`${appDataPath}tabs-${currentWsId}.json`, JSON.stringify(tabData));
+        }
+
+        // Clear previous workspace state before switching
+        useTabStore.getState().closeAllTabs();
+        setCurrentDocumentId(null);
+        setCurrentDocument(null);
+        setDocumentMap({});
+        setDocuments([]);
+        setTree([]);
+
         // Save workspace info
         const wsId = generateId();
         const workspace = { id: wsId, name: displayName, path: wsPath };
         addWorkspace(workspace);
         setActiveWorkspace(wsId);
-
-        // Persist
-        await fs.writeTextFile(
-          `${appDataPath}workspaces.json`,
-          JSON.stringify({ workspaces: [...workspaces, workspace], activeWorkspaceId: wsId })
-        );
+        await persistWorkspaces(appDataPath, [...workspaces, workspace], wsId);
 
         // Save token and fetch git author from provider API
         if (token) {
@@ -304,20 +456,65 @@ function App() {
         }
 
         setScreen("editor");
-        showToast("success", `Workspace "${displayName}" created`);
+        showToast("success", t('toast.workspaceCreated', { name: displayName }));
       } catch (e) {
-        showToast("error", `Failed to create workspace: ${e}`);
+        showToast("error", t('toast.workspaceCreateFailed', { error: String(e) }));
       }
     },
     [workspaces, gitAuthorName, gitAuthorEmail]
+  );
+
+  const handleDeleteWorkspace = useCallback(
+    async (wsId: string) => {
+      try {
+        const ws = workspaces.find(w => w.id === wsId);
+        if (!ws) return;
+
+        // Delete workspace directory
+        await fs.removeDir(ws.path, { recursive: true });
+
+        // Remove from store
+        removeWorkspace(wsId);
+
+        // Clear current workspace state
+        useTabStore.getState().closeAllTabs();
+        setCurrentDocumentId(null);
+        setCurrentDocument(null);
+        setDocumentMap({});
+        setDocuments([]);
+        setTree([]);
+
+        // Persist
+        const appDataPath = await getAppDataPath();
+        const remaining = workspaces.filter(w => w.id !== wsId);
+        if (remaining.length > 0) {
+          const nextId = remaining[0].id;
+          setActiveWorkspace(nextId);
+          await persistWorkspaces(appDataPath, remaining, nextId);
+        } else {
+          await persistWorkspaces(appDataPath, [], '');
+          setScreen('welcome');
+        }
+
+        showToast("success", t('toast.workspaceDeleted', { name: ws.name }));
+      } catch (e) {
+        showToast("error", t('toast.workspaceDeleteFailed', { error: String(e) }));
+      }
+    },
+    [workspaces, removeWorkspace, setActiveWorkspace, setScreen]
   );
 
   const handleCloneRepo = useCallback(
     async (url: string, name: string, token?: string) => {
       try {
         const appDataPath = await getAppDataPath();
-        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-        const wsPath = `${appDataPath}workspaces/${slug}`;
+        const wsPath = `${appDataPath}workspaces/${toSlug(name)}`;
+
+        // Check for duplicate workspace path
+        if (workspaces.some(w => w.path === wsPath)) {
+          showToast("error", t('toast.workspaceAlreadyExists', { name }));
+          return;
+        }
 
         // Save token first so clone can use it for private repos
         if (token) {
@@ -330,43 +527,35 @@ function App() {
         // Initialize container and clone
         initContainer(fs, wsPath);
         const container = getContainer();
-        await container.gitService.init(wsPath);
+        await container.gitService.clone(wsPath, url, token ? { token } : undefined);
 
-        // Clone - this uses isomorphic-git's clone
-        const git = await import('isomorphic-git');
-        const http = await import('isomorphic-git/http/web');
-        const { tauriFsAdapter } = await import('./infrastructure/TauriFsAdapter');
-        await git.clone({
-          fs: tauriFsAdapter,
-          http: http.default,
-          dir: wsPath,
-          url,
-          singleBranch: true,
-          ...(token ? {
-            onAuth: () => ({ username: token }),
-          } : {}),
-        });
-
-        // Ensure required directories exist
-        if (!await fs.exists(`${wsPath}/pages`)) {
-          await fs.createDir(`${wsPath}/pages`, { recursive: true });
-        }
+        // Ensure assets directories exist
         if (!await fs.exists(`${wsPath}/assets`)) {
           await fs.createDir(`${wsPath}/assets/images`, { recursive: true });
           await fs.createDir(`${wsPath}/assets/diagrams`, { recursive: true });
         }
+
+        // Save current workspace's tab state BEFORE clearing
+        const currentWsId = useWorkspaceStore.getState().activeWorkspaceId;
+        if (currentWsId) {
+          const tabData = useTabStore.getState().serializeTabState();
+          await fs.writeTextFile(`${appDataPath}tabs-${currentWsId}.json`, JSON.stringify(tabData));
+        }
+
+        // Clear previous workspace state before switching
+        useTabStore.getState().closeAllTabs();
+        setCurrentDocumentId(null);
+        setCurrentDocument(null);
+        setDocumentMap({});
+        setDocuments([]);
+        setTree([]);
 
         // Save workspace info with remote URL
         const wsId = generateId();
         const workspace = { id: wsId, name, path: wsPath, remoteUrl: url };
         addWorkspace(workspace);
         setActiveWorkspace(wsId);
-
-        // Persist
-        await fs.writeTextFile(
-          `${appDataPath}workspaces.json`,
-          JSON.stringify({ workspaces: [...workspaces, workspace], activeWorkspaceId: wsId })
-        );
+        await persistWorkspaces(appDataPath, [...workspaces, workspace], wsId);
 
         // Fetch git author from provider API using token
         if (token) {
@@ -377,17 +566,24 @@ function App() {
         }
 
         setScreen("editor");
-        showToast("success", `Repository "${name}" cloned successfully`);
+        showToast("success", t('toast.cloneSuccess', { name }));
       } catch (e) {
-        showToast("error", `Failed to clone repository: ${e}`);
+        showToast("error", t('toast.cloneFailed', { error: String(e) }));
       }
     },
     [workspaces]
   );
 
+  const docById = useMemo(() => new Map(documents.map(d => [d.id, d])), [documents]);
+
   const handleSelectPage = useCallback((id: string) => {
+    // Find title from documents list
+    const doc = docById.get(id);
+    const title = doc?.title || id.split('/').pop() || '';
+    useTabStore.getState().openTab(id, title);
     setCurrentDocumentId(id);
-  }, []);
+    useFavoritesStore.getState().addRecentPage(id, title);
+  }, [docById]);
 
   // Refresh documents, tree, and search index (shared helper)
   const refreshDocuments = useCallback(async () => {
@@ -396,18 +592,83 @@ function App() {
     setDocuments(docs);
     setTree(container.treeService.buildTree(docs));
     container.searchService.rebuild(docs);
-  }, [setDocuments, setTree]);
+    container.documentService.buildBacklinkIndex().then(setBacklinkIndex).catch(() => {});
+  }, [setDocuments, setTree, setBacklinkIndex]);
 
-  const handleNewPage = useCallback(async () => {
+  // --- Favorites ---
+  const { favorites, recentPages } = useFavoritesStore();
+  const handleToggleFavorite = useCallback((id: string) => {
+    useFavoritesStore.getState().toggleFavorite(id);
+  }, []);
+
+  // --- Template dialog state ---
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+
+  // --- Create page/folder dialog state ---
+  const [createDialog, setCreateDialog] = useState<{
+    isOpen: boolean;
+    mode: 'page' | 'folder';
+  }>({ isOpen: false, mode: 'page' });
+
+  const handleNewPage = useCallback(() => {
+    setTemplateDialogOpen(true);
+  }, []);
+
+  const handleNewFolder = useCallback(() => {
+    setCreateDialog({ isOpen: true, mode: 'folder' });
+  }, []);
+
+  const handleTemplateSelect = useCallback(async (template: PageTemplate) => {
+    setTemplateDialogOpen(false);
     try {
       const container = getContainer();
-      const doc = await container.documentService.create({ title: "" });
+      const doc = await container.documentService.create({
+        title: '',
+      });
+      if (template.content) {
+        doc.body = template.content;
+        await container.documentService.update(doc);
+      }
       await refreshDocuments();
+      useTabStore.getState().openTab(doc.id, doc.title || t('editor.untitled'));
       setCurrentDocumentId(doc.id);
+      refreshGitStatus();
     } catch (e) {
-      showToast("error", `Failed to create page: ${e}`);
+      showToast("error", t('toast.createFailed', { mode: 'page', error: String(e) }));
     }
-  }, [refreshDocuments]);
+  }, [refreshDocuments, refreshGitStatus, t]);
+
+  const handleCreateItemConfirm = useCallback(async (name: string, parentFolder: string | null) => {
+    const mode = createDialog.mode;
+    setCreateDialog({ isOpen: false, mode: 'page' });
+
+    try {
+      const container = getContainer();
+      if (mode === 'page') {
+        const doc = await container.documentService.create({
+          title: name,
+          parentFolder,
+        });
+        await refreshDocuments();
+        useTabStore.getState().openTab(doc.id, name);
+        setCurrentDocumentId(doc.id);
+      } else {
+        // Create folder
+        const folderPath = parentFolder
+          ? `${container.workspacePath}/${parentFolder}/${name}`
+          : `${container.workspacePath}/${name}`;
+        await fs.createDir(folderPath, { recursive: true });
+        await refreshDocuments();
+      }
+      refreshGitStatus();
+    } catch (e) {
+      showToast("error", t('toast.createFailed', { mode, error: String(e) }));
+    }
+  }, [createDialog.mode, refreshDocuments, refreshGitStatus]);
+
+  const handleCreateItemCancel = useCallback(() => {
+    setCreateDialog({ isOpen: false, mode: 'page' });
+  }, []);
 
   // --- Delete page (show confirmation dialog) ---
   const handleDeleteRequest = useCallback((id: string, title: string, childCount: number) => {
@@ -420,41 +681,53 @@ function App() {
 
     try {
       const container = getContainer();
+      const isFolder = documents.find(d => d.id === id)?.tags?.includes('__folder');
 
-      // If this page has children, collect all descendant IDs and delete them too
-      if (childCount > 0) {
-        const node = container.treeService.findNode(tree, id);
-        if (node) {
-          const collectIds = (n: typeof node): string[] => {
-            const ids: string[] = [];
-            for (const child of n.children) {
-              ids.push(child.meta.id);
-              ids.push(...collectIds(child));
+      if (isFolder) {
+        // For folders: use deleteFolder which moves all files to trash then removes dir
+        await container.documentService.deleteFolder(id);
+      } else {
+        // If this page has children, collect all descendant IDs and delete them too
+        if (childCount > 0) {
+          const node = container.treeService.findNode(tree, id);
+          if (node) {
+            const collectIds = (n: typeof node): string[] => {
+              const ids: string[] = [];
+              for (const child of n.children) {
+                ids.push(child.meta.id);
+                ids.push(...collectIds(child));
+              }
+              return ids;
+            };
+            const childIds = collectIds(node);
+            for (const childId of childIds) {
+              await container.documentService.delete(childId);
             }
-            return ids;
-          };
-          const childIds = collectIds(node);
-          for (const childId of childIds) {
-            await container.documentService.delete(childId);
           }
         }
+
+        // Delete the page itself
+        await container.documentService.delete(id);
       }
 
-      // Delete the page itself
-      await container.documentService.delete(id);
+      // Close tabs for deleted pages across all panes
+      useTabStore.getState().closeTabsMatching(
+        (tabId) => tabId === id || tabId.startsWith(id + '/')
+      );
 
-      // If the deleted page was the current one, clear selection
-      if (currentDocumentId === id) {
-        setCurrentDocumentId(null);
+      // Update current document to whatever is now active
+      const newActiveDocId = useTabStore.getState().getActiveDocId();
+      setCurrentDocumentId(newActiveDocId);
+      if (!newActiveDocId) {
         setCurrentDocument(null);
       }
 
       await refreshDocuments();
       refreshGitStatus();
     } catch (e) {
-      showToast("error", `Failed to delete page: ${e}`);
+      showToast("error", t('toast.deleteFailed', { error: String(e) }));
     }
-  }, [deleteDialog, tree, currentDocumentId, refreshDocuments, refreshGitStatus, setCurrentDocumentId, setCurrentDocument]);
+  }, [deleteDialog, documents, tree, refreshDocuments, refreshGitStatus, setCurrentDocumentId, setCurrentDocument]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteDialog({ isOpen: false, id: "", title: "", childCount: 0 });
@@ -471,103 +744,190 @@ function App() {
 
     try {
       const container = getContainer();
-      const doc = await container.documentService.get(id);
-      doc.title = newTitle;
-      await container.documentService.update(doc);
 
-      // If this is the currently open document, update its state too
-      if (currentDocumentId === id) {
-        setCurrentDocument({ ...doc, title: newTitle });
+      // Check if this is a folder (virtual node without .md file)
+      const isFolder = documents.find(d => d.id === id)?.tags?.includes('__folder');
+
+      if (isFolder) {
+        // Rename the directory on disk
+        await container.documentService.renameFolder(id, newTitle);
+
+        // If the currently open document was inside this folder, clear it
+        if (currentDocumentId?.startsWith(id + '/')) {
+          setCurrentDocumentId(null);
+          setCurrentDocument(null);
+        }
+      } else {
+        // Rename = rename file on disk (title is derived from filename)
+        const newId = await container.documentService.rename(id, newTitle);
+        const newTitleFromId = newId.split('/').pop() || newId;
+
+        // Update tab: replace old ID with new ID
+        const tabStore = useTabStore.getState();
+        tabStore.replaceTabId(id, newId, newTitleFromId);
+
+        // If this is the currently open document, switch to new ID
+        if (currentDocumentId === id) {
+          const doc = await container.documentService.get(newId);
+          setCurrentDocument(doc);
+          setCurrentDocumentId(newId);
+        }
+        // Update documentMap
+        setDocumentMap(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
       }
 
       await refreshDocuments();
       refreshGitStatus();
     } catch (e) {
-      showToast("error", `Failed to rename page: ${e}`);
+      showToast("error", t('toast.renameFailed', { error: String(e) }));
     }
-  }, [renameDialog, currentDocumentId, refreshDocuments, refreshGitStatus, setCurrentDocument]);
+  }, [renameDialog, documents, currentDocumentId, refreshDocuments, refreshGitStatus, setCurrentDocument, setCurrentDocumentId]);
 
   const handleRenameCancel = useCallback(() => {
     setRenameDialog({ isOpen: false, id: "", currentTitle: "" });
   }, []);
 
-  // --- Move page (drag & drop reorder / reparent) ---
-  const handleMovePage = useCallback(async (id: string, newParent: string | null, newOrder: number) => {
+  // --- Copy / Duplicate page ---
+  const handleCopyPage = useCallback(async (id: string) => {
     try {
       const container = getContainer();
-      const doc = await container.documentService.get(id);
+      const original = await container.documentService.get(id);
+      const copy = await container.documentService.create({
+        title: `${original.title} (copy)`,
+        parentFolder: original.parent || undefined,
+      });
+      copy.body = original.body;
+      copy.tags = original.tags.filter(t => !t.startsWith('__'));
+      copy._rawMeta = original._rawMeta;
+      await container.documentService.update(copy);
+      await refreshDocuments();
+      useTabStore.getState().openTab(copy.id, copy.title);
+      setCurrentDocumentId(copy.id);
+      refreshGitStatus();
+      showToast("success", t('toast.pageCopied', { title: original.title }));
+    } catch (e) {
+      showToast("error", t('toast.copyFailed', { error: String(e) }));
+    }
+  }, [refreshDocuments, refreshGitStatus, t]);
 
-      // Get all documents to recalculate orders
-      const allDocs = await container.documentService.listAll();
+  // --- Tab management ---
+  const handleSelectTab = useCallback((paneId: string, tabId: string) => {
+    useTabStore.getState().selectPaneTab(paneId, tabId);
+    useTabStore.getState().setActivePaneId(paneId);
+    setCurrentDocumentId(tabId);
+  }, []);
 
-      // Get current siblings at the target location (same parent), excluding the moved doc
-      const targetSiblings = allDocs
-        .filter(d => d.parent === newParent && d.id !== id)
-        .sort((a, b) => a.order - b.order);
+  const handleCloseTab = useCallback((paneId: string, tabId: string) => {
+    useTabStore.getState().closePaneTab(paneId, tabId);
+    const newDocId = useTabStore.getState().getActiveDocId();
+    setCurrentDocumentId(newDocId);
+    if (!newDocId) {
+      setCurrentDocument(null);
+    }
+  }, [setCurrentDocument]);
 
-      // Clamp the target order to valid range
-      const clampedOrder = Math.max(0, Math.min(newOrder, targetSiblings.length));
+  const handleActivatePane = useCallback((paneId: string) => {
+    useTabStore.getState().setActivePaneId(paneId);
+    const newDocId = useTabStore.getState().getActiveDocId();
+    setCurrentDocumentId(newDocId);
+  }, []);
 
-      // Update order values for all affected siblings
-      for (let i = 0; i < targetSiblings.length; i++) {
-        const sibling = targetSiblings[i];
-        const newSiblingOrder = i >= clampedOrder ? i + 1 : i;
-        if (sibling.order !== newSiblingOrder) {
-          const siblingDoc = await container.documentService.get(sibling.id);
-          siblingDoc.order = newSiblingOrder;
-          await container.documentService.update(siblingDoc);
+  const handlePaneClosed = useCallback(() => {
+    const newDocId = useTabStore.getState().getActiveDocId();
+    setCurrentDocumentId(newDocId);
+    if (!newDocId) setCurrentDocument(null);
+  }, [setCurrentDocument]);
+
+  // Sync editorStore.isDirty → active tab's dirty state
+  useEffect(() => {
+    let prevDirty = useEditorStore.getState().isDirty;
+    const unsubscribe = useEditorStore.subscribe((state) => {
+      if (state.isDirty !== prevDirty) {
+        prevDirty = state.isDirty;
+        const activeDocId = useTabStore.getState().getActiveDocId();
+        if (activeDocId) {
+          useTabStore.getState().setTabDirty(activeDocId, state.isDirty);
         }
       }
+    });
+    return unsubscribe;
+  }, []);
 
-      // Update the moved document
-      doc.parent = newParent;
-      doc.order = clampedOrder;
-      await container.documentService.update(doc);
-
-      // If this is the currently open document, refresh it
-      if (currentDocumentId === id) {
-        setCurrentDocument({ ...doc });
-      }
-
-      await refreshDocuments();
-      refreshGitStatus();
-    } catch (e) {
-      showToast("error", `Failed to move page: ${e}`);
+  // When renaming a page, also update the tab title
+  useEffect(() => {
+    if (currentDocument) {
+      useTabStore.getState().setTabTitle(currentDocument.id, currentDocument.title);
     }
-  }, [currentDocumentId, refreshDocuments, refreshGitStatus, setCurrentDocument]);
+  }, [currentDocument?.id, currentDocument?.title]);
 
   const handleSave = useCallback(async (doc: Document) => {
     try {
       const container = getContainer();
       await container.documentService.update(doc);
+      setDocumentMap(prev => ({ ...prev, [doc.id]: doc }));
       await refreshDocuments();
       refreshGitStatus();
     } catch (e) {
-      showToast("error", `Failed to save: ${e}`);
+      showToast("error", t('toast.saveFailed', { error: String(e) }));
     }
   }, [refreshDocuments, refreshGitStatus]);
 
   const handleNavigate = useCallback((id: string) => {
     if (id) {
+      // Open in a tab when navigating via wiki-link or breadcrumb
+      const doc = docById.get(id);
+      const title = doc?.title || id.split('/').pop() || '';
+      useTabStore.getState().openTab(id, title);
       setCurrentDocumentId(id);
     } else {
       setCurrentDocumentId(null);
     }
-  }, []);
+  }, [docById]);
 
   const handleSwitchWorkspace = useCallback(async (wsId: string) => {
     try {
+      // Save current workspace's tab state BEFORE clearing
+      const currentWsId = useWorkspaceStore.getState().activeWorkspaceId;
+      const appDataPath = await getAppDataPath();
+      if (currentWsId) {
+        const data = useTabStore.getState().serializeTabState();
+        await fs.writeTextFile(`${appDataPath}tabs-${currentWsId}.json`, JSON.stringify(data));
+      }
+
+      useTabStore.getState().closeAllTabs();
       setCurrentDocumentId(null);
       setCurrentDocument(null);
+      setDocumentMap({});
+      setDocuments([]);
+      setTree([]);
       setActiveWorkspace(wsId);
-      // Persist the active workspace
-      const appDataPath = await getAppDataPath();
       await fs.writeTextFile(
         `${appDataPath}workspaces.json`,
         JSON.stringify({ workspaces, activeWorkspaceId: wsId })
       );
+      // Restore tab state for the target workspace
+      const tabsFile = `${appDataPath}tabs-${wsId}.json`;
+      if (await fs.exists(tabsFile)) {
+        try {
+          const tabsRaw = await fs.readTextFile(tabsFile);
+          const tabsData = JSON.parse(tabsRaw);
+          if (tabsData.paneLayout) {
+            useTabStore.getState().loadTabState(tabsData);
+            const activeDocId = useTabStore.getState().getActiveDocId();
+            if (activeDocId) {
+              setCurrentDocumentId(activeDocId);
+            }
+          }
+        } catch {
+          // Ignore invalid tabs file
+        }
+      }
     } catch (e) {
-      showToast("error", `Failed to switch workspace: ${e}`);
+      showToast("error", t('toast.switchWorkspaceFailed', { error: String(e) }));
     }
   }, [workspaces, setActiveWorkspace, setCurrentDocumentId, setCurrentDocument]);
 
@@ -598,11 +958,11 @@ function App() {
         name: gitAuthorName || 'Knowledge Hub User',
         email: gitAuthorEmail || 'user@knowledgehub.local',
       });
-      showToast("success", "git.commitSuccess");
+      showToast("success", t('git.commitSuccess'));
       await refreshGitStatus();
       await refreshGitLog();
     } catch (e) {
-      showToast("error", `Commit failed: ${e}`);
+      showToast("error", t('toast.commitFailed', { error: String(e) }));
     }
   }, [gitAuthorName, gitAuthorEmail, refreshGitStatus, refreshGitLog]);
 
@@ -625,7 +985,7 @@ function App() {
       await refreshGitStatus();
       await refreshGitLog();
     } catch (e) {
-      showToast("error", `Sync failed: ${e}`);
+      showToast("error", t('toast.syncFailed', { error: String(e) }));
     } finally {
       setSyncing(false);
     }
@@ -703,11 +1063,12 @@ function App() {
       setDocuments(docs);
       setTree(container.treeService.buildTree(docs));
       container.searchService.rebuild(docs);
+      container.documentService.buildBacklinkIndex().then(setBacklinkIndex).catch(() => {});
     } catch {
       // Silent fail: increment error count
       consecutiveErrorsRef.current += 1;
     }
-  }, [refreshGitStatus, refreshGitLog, setDocuments, setTree, gitToken]);
+  }, [refreshGitStatus, refreshGitLog, setDocuments, setTree, setBacklinkIndex, gitToken]);
 
   // Set up auto-sync with dynamic interval + focus listener
   useEffect(() => {
@@ -758,8 +1119,9 @@ function App() {
       const container = getContainer();
       const doc = await container.documentService.get(docId);
       setCurrentDocument(doc);
+      setDocumentMap(prev => ({ ...prev, [docId]: doc }));
     } catch (e) {
-      showToast("error", `Failed to reload document: ${e}`);
+      showToast("error", t('toast.reloadFailed', { error: String(e) }));
     }
   }, [setCurrentDocument]);
 
@@ -768,15 +1130,18 @@ function App() {
     refreshGitStatus();
   }, [refreshDocuments, refreshGitStatus]);
 
-  const getAncestors = () => {
-    if (!currentDocument) return [];
+  const getAncestorsForDoc = useCallback((docId: string): DocumentMeta[] => {
     try {
       const container = getContainer();
-      return container.treeService.getAncestors(documents, currentDocument.id);
+      return container.treeService.getAncestors(documents, docId);
     } catch {
       return [];
     }
-  };
+  }, [documents]);
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarVisible(prev => !prev);
+  }, []);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -815,50 +1180,109 @@ function App() {
   }, [screen, activeWorkspaceId, handleNewPage, handleSync]);
 
   if (loading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="flex flex-col h-screen border border-window-border">
+        <TitleBar onOpenHelp={() => setScreen('help')} />
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (screen === 'help') {
+    return (
+      <div className="flex flex-col h-screen border border-window-border">
+        <TitleBar onOpenHelp={() => setScreen('help')} />
+        <HelpPage onBack={() => setScreen('editor')} />
+        <ToastContainer />
+      </div>
+    );
+  }
+
+  if (screen === 'settings') {
+    return (
+      <div className="flex flex-col h-screen border border-window-border">
+        <TitleBar onOpenHelp={() => setScreen('help')} />
+        <SettingsView onBack={() => setScreen('editor')} />
+        <ToastContainer />
+      </div>
+    );
+  }
+
+  if (screen === 'imageCleanup') {
+    const ws = getActiveWorkspace();
+    return (
+      <div className="flex flex-col h-screen border border-window-border">
+        <TitleBar onOpenHelp={() => setScreen('help')} />
+        <ImageCleanupView
+          onBack={() => setScreen('editor')}
+          workspacePath={ws?.path ?? ""}
+          fs={fs}
+        />
+        <ToastContainer />
+      </div>
+    );
   }
 
   if (screen === "welcome" || workspaces.length === 0) {
     return (
-      <>
-        <WelcomeScreen onCreateWorkspace={handleCreateWorkspace} onCloneRepo={handleCloneRepo} />
+      <div className="flex flex-col h-screen border border-window-border">
+        <TitleBar minimal onOpenHelp={() => setScreen('help')} />
+        <div className="flex-1 overflow-auto">
+          <WelcomeScreen
+            onCreateWorkspace={handleCreateWorkspace}
+            onCloneRepo={handleCloneRepo}
+            onBack={workspaces.length > 0 ? () => setScreen('editor') : undefined}
+            existingToken={gitToken || undefined}
+          />
+        </div>
         <ToastContainer />
-      </>
+      </div>
     );
   }
 
   const activeWs = getActiveWorkspace();
 
   return (
-    <>
+    <div className="flex flex-col h-screen border border-window-border">
+      <TitleBar onOpenHelp={() => setScreen('help')} />
       <AppShell
         tree={tree}
         documents={documents}
         selectedId={currentDocumentId}
-        currentDocument={currentDocument}
-        ancestors={getAncestors()}
+        documentMap={documentMap}
+        getAncestors={getAncestorsForDoc}
         workspaceName={activeWs?.name ?? "Knowledge Hub"}
         workspacePath={activeWs?.path ?? ""}
         sidebarVisible={sidebarVisible}
         workspaces={workspaces.map(ws => ({ id: ws.id, name: ws.name }))}
         activeWorkspaceId={activeWorkspaceId}
         onSwitchWorkspace={handleSwitchWorkspace}
-        onAddWorkspace={() => setAddWsDialogOpen(true)}
+        onAddWorkspace={() => setScreen('welcome')}
+        onDeleteWorkspace={(id, name) => setDeleteWsDialog({ isOpen: true, id, name })}
         onSelectPage={handleSelectPage}
         onNewPage={handleNewPage}
+        onNewFolder={handleNewFolder}
         onDeletePage={handleDeleteRequest}
         onRenamePage={handleRenameRequest}
-        onMovePage={handleMovePage}
         onSave={handleSave}
         onNavigate={handleNavigate}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => setScreen('settings')}
         onOpenTrash={() => setTrashOpen(true)}
+        onOpenImageCleanup={() => setScreen('imageCleanup')}
         onCommit={handleCommit}
         onSync={handleSync}
         onReloadDocument={handleReloadDocument}
+        onSelectTab={handleSelectTab}
+        onCloseTab={handleCloseTab}
+        onActivatePane={handleActivatePane}
+        onPaneClosed={handlePaneClosed}
+        onToggleSidebar={handleToggleSidebar}
+        favorites={favorites}
+        recentPages={recentPages}
+        onToggleFavorite={handleToggleFavorite}
+        onCopyPage={handleCopyPage}
       />
       <SearchModal onSelect={handleSelectPage} onSearch={handleSearch} />
-      {settingsOpen && <SettingsView onClose={() => setSettingsOpen(false)} />}
       <TrashPanel
         isOpen={trashOpen}
         onClose={() => setTrashOpen(false)}
@@ -885,19 +1309,32 @@ function App() {
         onConfirm={handleRenameConfirm}
         onCancel={handleRenameCancel}
       />
-      <RenameDialog
-        isOpen={addWsDialogOpen}
-        currentTitle=""
-        onConfirm={(name) => {
-          setAddWsDialogOpen(false);
-          if (name.trim()) {
-            handleCreateWorkspace(name.trim(), name.trim());
-          }
+      <ConfirmDialog
+        isOpen={deleteWsDialog.isOpen}
+        title={t('workspace.deleteTitle')}
+        message={t('workspace.deleteMessage', { name: deleteWsDialog.name })}
+        confirmLabel={t('common.delete')}
+        variant="danger"
+        onConfirm={() => {
+          setDeleteWsDialog({ isOpen: false, id: '', name: '' });
+          handleDeleteWorkspace(deleteWsDialog.id);
         }}
-        onCancel={() => setAddWsDialogOpen(false)}
+        onCancel={() => setDeleteWsDialog({ isOpen: false, id: '', name: '' })}
+      />
+      <CreateItemDialog
+        isOpen={createDialog.isOpen}
+        mode={createDialog.mode}
+        documents={documents}
+        onConfirm={handleCreateItemConfirm}
+        onCancel={handleCreateItemCancel}
+      />
+      <TemplateDialog
+        isOpen={templateDialogOpen}
+        onSelect={handleTemplateSelect}
+        onCancel={() => setTemplateDialogOpen(false)}
       />
       <ToastContainer />
-    </>
+    </div>
   );
 }
 

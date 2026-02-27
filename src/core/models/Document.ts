@@ -2,12 +2,13 @@ export interface DocumentMeta {
   id: string;
   title: string;
   parent: string | null;
-  order: number;
   tags: string[];
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface Document extends DocumentMeta {
   body: string;
+  /** Whether the file originally had frontmatter. Files without it are saved as plain markdown. */
+  hasFrontmatter?: boolean;
+  /** Preserve unknown frontmatter fields from the original file */
+  _rawMeta?: Record<string, unknown>;
 }

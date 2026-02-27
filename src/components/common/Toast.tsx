@@ -29,10 +29,10 @@ export function ToastContainer() {
   }, []);
 
   const typeStyles: Record<ToastType, string> = {
-    success: 'bg-[var(--color-success)] text-white',
-    error: 'bg-[var(--color-danger)] text-white',
-    info: 'bg-[var(--color-accent)] text-white',
-    warning: 'bg-[var(--color-warning)] text-[var(--color-text-primary)]',
+    success: 'bg-success text-white',
+    error: 'bg-danger text-white',
+    info: 'bg-accent text-white',
+    warning: 'bg-warning text-text-primary',
   };
 
   return (

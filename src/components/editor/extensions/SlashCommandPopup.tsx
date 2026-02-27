@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Editor } from '@tiptap/react';
 import type { SlashCommand } from './slash-command';
-import { defaultCommands } from './slash-command';
+import { getDefaultCommands } from './slash-command';
 
 interface SlashCommandPopupProps {
   editor: Editor;
@@ -16,12 +17,15 @@ export function SlashCommandPopup({
   position,
   onClose,
 }: SlashCommandPopupProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const popupRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const filtered = defaultCommands.filter((cmd) =>
+  const commands = useMemo(() => getDefaultCommands(t), [t]);
+
+  const filtered = commands.filter((cmd) =>
     cmd.name.toLowerCase().includes(query.toLowerCase())
   );
 
@@ -130,7 +134,7 @@ export function SlashCommandPopup({
   return (
     <div
       ref={popupRef}
-      className="fixed z-50 bg-[var(--color-bg-main)] border border-[var(--color-border)] rounded-lg shadow-lg overflow-hidden"
+      className="fixed z-50 bg-bg-main border border-border rounded-lg shadow-lg overflow-hidden"
       style={{
         top: position.top + 4,
         left: position.left,
@@ -138,13 +142,13 @@ export function SlashCommandPopup({
         maxWidth: 320,
       }}
     >
-      <div className="px-3 py-1.5 text-xs text-[var(--color-text-secondary)] border-b border-[var(--color-border)]">
-        Commands
+      <div className="px-3 py-1.5 text-xs text-text-secondary border-b border-border">
+        {t('editor.slashCommand.title')}
       </div>
       <div className="max-h-[280px] overflow-y-auto">
         {filtered.length === 0 && (
-          <div className="px-3 py-4 text-sm text-[var(--color-text-secondary)] text-center">
-            No matching commands
+          <div className="px-3 py-4 text-sm text-text-secondary text-center">
+            {t('editor.slashCommand.noMatches')}
           </div>
         )}
         {filtered.map((cmd, index) => (
@@ -156,8 +160,8 @@ export function SlashCommandPopup({
             onClick={() => executeCommand(cmd)}
             className={`w-full text-left px-3 py-2 text-sm flex items-center gap-3 transition-colors ${
               index === selectedIndex
-                ? 'bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
-                : 'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
+                ? 'bg-sidebar-selected text-accent'
+                : 'text-text-primary hover:bg-bg-hover'
             }`}
           >
             <span className="w-6 text-center text-base shrink-0">
@@ -165,7 +169,7 @@ export function SlashCommandPopup({
             </span>
             <div>
               <div className="font-medium">{cmd.name}</div>
-              <div className="text-xs text-[var(--color-text-secondary)]">
+              <div className="text-xs text-text-secondary">
                 {cmd.description}
               </div>
             </div>

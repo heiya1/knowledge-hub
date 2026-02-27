@@ -1,5 +1,6 @@
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
+import { Command } from '@tauri-apps/plugin-shell';
 import { tauriFsAdapter } from './TauriFsAdapter';
 import type {
   IGitService,
@@ -22,6 +23,41 @@ export class IsomorphicGitService implements IGitService {
 
   async init(dir: string): Promise<void> {
     await git.init({ fs: this.fs, dir, defaultBranch: 'main' });
+  }
+
+  async clone(
+    dir: string,
+    url: string,
+    options?: { token?: string }
+  ): Promise<void> {
+    // Use native git command for clone (isomorphic-git has WebView compatibility issues)
+    let authUrl = url;
+    if (options?.token) {
+      // Inject token into URL for authentication
+      // GitHub: https://{token}@github.com/...
+      // GitLab: https://oauth2:{token}@gitlab.com/...
+      try {
+        const parsed = new URL(url);
+        if (parsed.hostname.includes('gitlab')) {
+          parsed.username = 'oauth2';
+          parsed.password = options.token;
+        } else {
+          parsed.username = options.token;
+        }
+        authUrl = parsed.toString();
+      } catch {
+        // If URL parsing fails, try as-is
+      }
+    }
+
+    const result = await Command.create('exec-sh', [
+      '-c',
+      `git clone --single-branch "${authUrl}" "${dir}"`,
+    ]).execute();
+
+    if (result.code !== 0) {
+      throw new Error(result.stderr || 'git clone failed');
+    }
   }
 
   async status(dir: string): Promise<GitStatus[]> {
@@ -64,10 +100,7 @@ export class IsomorphicGitService implements IGitService {
       fs: this.fs,
       dir,
       message,
-      author: {
-        name: author.name,
-        email: author.email,
-      },
+      author,
     });
     return oid;
   }

@@ -1,4 +1,5 @@
 import { Node } from '@tiptap/core';
+import i18next from 'i18next';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -42,14 +43,14 @@ export const TableOfContents = Node.create({
 
         if (headings.length === 0) {
           container.innerHTML =
-            '<p style="color: var(--color-text-secondary); font-size: 13px; margin: 0;">No headings found</p>';
+            `<p style="color: var(--color-text-secondary); font-size: 13px; margin: 0;">${i18next.t('editor.slashCommand.noHeadings')}</p>`;
           return;
         }
 
         const title = document.createElement('div');
         title.style.cssText =
           'font-weight: 600; font-size: 14px; margin-bottom: 8px; color: var(--color-text-primary);';
-        title.textContent = 'Table of Contents';
+        title.textContent = i18next.t('editor.slashCommand.toc');
 
         const list = document.createElement('ul');
         list.style.cssText = 'list-style: none; padding: 0; margin: 0;';
@@ -93,6 +94,31 @@ export const TableOfContents = Node.create({
           editor.off('update', updateToc);
         },
       };
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: { write: (text: string) => void; closeBlock: (node: unknown) => void }, node: unknown) {
+          state.write('<!-- toc -->');
+          state.closeBlock(node);
+        },
+        parse: {
+          updateDOM(element: HTMLElement) {
+            const walker = document.createTreeWalker(element, NodeFilter.SHOW_COMMENT);
+            let comment: Comment | null;
+            while ((comment = walker.nextNode() as Comment | null)) {
+              if (comment.textContent?.trim() === 'toc') {
+                const div = document.createElement('div');
+                div.setAttribute('data-toc', '');
+                div.className = 'toc-block';
+                comment.replaceWith(div);
+              }
+            }
+          },
+        },
+      },
     };
   },
 

@@ -17,7 +17,7 @@ export const useSearchStore = create<SearchState>((set) => ({
   query: '',
   results: [],
   selectedIndex: 0,
-  setOpen: (isOpen) => set({ isOpen, query: isOpen ? '' : '', results: [], selectedIndex: 0 }),
+  setOpen: (isOpen) => set({ isOpen, query: '', results: [], selectedIndex: 0 }),
   setQuery: (query) => set({ query, selectedIndex: 0 }),
   setResults: (results) => set({ results }),
   setSelectedIndex: (selectedIndex) => set({ selectedIndex }),

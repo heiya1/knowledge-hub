@@ -15,6 +15,7 @@ export interface GitLogEntry {
 
 export interface IGitService {
   init(dir: string): Promise<void>;
+  clone(dir: string, url: string, options?: { token?: string }): Promise<void>;
   status(dir: string): Promise<GitStatus[]>;
   add(dir: string, filepath: string): Promise<void>;
   remove(dir: string, filepath: string): Promise<void>;

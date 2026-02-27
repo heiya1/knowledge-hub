@@ -1,5 +1,4 @@
-import { homeDir } from '@tauri-apps/api/path';
-import type { IFileSystem } from '../core/interfaces/IFileSystem';
+import { Command } from '@tauri-apps/plugin-shell';
 
 export interface GitUserInfo {
   name: string;
@@ -82,37 +81,14 @@ export async function fetchRepoList(token: string): Promise<GitRepo[]> {
   }
 }
 
-/** Read user.name / user.email from ~/.gitconfig */
-export async function readSystemGitConfig(fsImpl: IFileSystem): Promise<GitUserInfo | null> {
+/** Read user.name / user.email from system git config via `git config` command */
+export async function readSystemGitConfig(): Promise<GitUserInfo | null> {
   try {
-    const home = await homeDir();
-    const configPath = `${home}.gitconfig`;
-    if (!await fsImpl.exists(configPath)) return null;
+    const nameResult = await Command.create('exec-sh', ['-c', 'git config --global user.name']).execute();
+    const emailResult = await Command.create('exec-sh', ['-c', 'git config --global user.email']).execute();
 
-    const content = await fsImpl.readTextFile(configPath);
-
-    let inUserSection = false;
-    let name = '';
-    let email = '';
-
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim();
-      if (trimmed === '[user]') {
-        inUserSection = true;
-        continue;
-      }
-      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-        inUserSection = false;
-        continue;
-      }
-      if (inUserSection) {
-        const match = trimmed.match(/^(\w+)\s*=\s*(.+)$/);
-        if (match) {
-          if (match[1] === 'name') name = match[2].trim();
-          if (match[1] === 'email') email = match[2].trim();
-        }
-      }
-    }
+    const name = nameResult.code === 0 ? nameResult.stdout.trim() : '';
+    const email = emailResult.code === 0 ? emailResult.stdout.trim() : '';
 
     if (name || email) return { name, email };
     return null;

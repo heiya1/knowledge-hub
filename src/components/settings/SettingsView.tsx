@@ -1,21 +1,20 @@
 import { useTranslation } from 'react-i18next';
+import { ArrowLeft } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
-import type { ThemeMode, Language, SyncInterval, AiProvider } from '../../stores/settingsStore';
+import type { ThemeMode, Language, SyncInterval } from '../../stores/settingsStore';
 
 interface SettingsViewProps {
-  onClose: () => void;
+  onBack: () => void;
 }
 
-export function SettingsView({ onClose }: SettingsViewProps) {
+export function SettingsView({ onBack }: SettingsViewProps) {
   const { t, i18n } = useTranslation();
   const {
     theme, language, gitAuthorName, gitAuthorEmail,
     autoSave, fontSize, gitToken, autoSync, syncInterval,
-    aiProvider, aiApiKey, ollamaModel, ollamaUrl,
     setTheme, setLanguage, setGitAuthor, setAutoSave, setFontSize,
     setGitToken, setAutoSync, setSyncInterval,
-    setAiProvider, setAiApiKey, setOllamaModel, setOllamaUrl,
   } = useSettingsStore();
   const activeWorkspace = useWorkspaceStore((s) => s.getActiveWorkspace());
   const updateWorkspace = useWorkspaceStore((s) => s.updateWorkspace);
@@ -36,33 +35,36 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
-      <div
-        className="relative w-full max-w-lg bg-[var(--color-bg-main)] rounded-xl shadow-2xl border border-[var(--color-border)] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
-          <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
-            {t('settings.title')}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors text-lg"
-          >
-            &times;
-          </button>
-        </div>
+    <div className="flex-1 flex flex-col min-h-0 bg-bg-main">
+      {/* Header with back button */}
+      <div className="flex items-center gap-3 px-6 py-3 border-b border-border shrink-0">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>{t('settings.back')}</span>
+        </button>
+      </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-6 space-y-6">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
+          {/* Title */}
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary mb-2">
+              {t('settings.title')}
+            </h1>
+          </div>
+
           {/* General */}
           <section>
-            <h3 className="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
               {t('settings.general')}
-            </h3>
+            </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-[var(--color-text-primary)] mb-1.5">
+                <label className="block text-sm text-text-primary mb-1.5">
                   {t('settings.theme')}
                 </label>
                 <div className="flex gap-2">
@@ -72,8 +74,8 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                       onClick={() => handleThemeChange(m)}
                       className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                         theme === m
-                          ? 'border-[var(--color-accent)] bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
-                          : 'border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
+                          ? 'border-accent bg-sidebar-selected text-accent'
+                          : 'border-border text-text-primary hover:bg-bg-hover'
                       }`}
                     >
                       {t(`settings.theme${m.charAt(0).toUpperCase() + m.slice(1)}`)}
@@ -83,7 +85,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
               </div>
 
               <div>
-                <label className="block text-sm text-[var(--color-text-primary)] mb-1.5">
+                <label className="block text-sm text-text-primary mb-1.5">
                   {t('settings.language')}
                 </label>
                 <div className="flex gap-2">
@@ -93,8 +95,8 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                       onClick={() => handleLanguageChange(l)}
                       className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                         language === l
-                          ? 'border-[var(--color-accent)] bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
-                          : 'border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
+                          ? 'border-accent bg-sidebar-selected text-accent'
+                          : 'border-border text-text-primary hover:bg-bg-hover'
                       }`}
                     >
                       {t(`settings.lang${l.charAt(0).toUpperCase() + l.slice(1)}`)}
@@ -107,30 +109,30 @@ export function SettingsView({ onClose }: SettingsViewProps) {
 
           {/* User */}
           <section>
-            <h3 className="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
               {t('settings.user')}
-            </h3>
+            </h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                <label className="block text-sm text-text-secondary mb-1">
                   {t('welcome.name')}
                 </label>
                 <input
                   type="text"
                   value={gitAuthorName}
                   onChange={(e) => setGitAuthor(e.target.value, gitAuthorEmail)}
-                  className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+                  className="w-full px-3 py-2 rounded-md border border-border bg-bg-main text-text-primary text-sm focus:outline-none focus:border-accent"
                 />
               </div>
               <div>
-                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                <label className="block text-sm text-text-secondary mb-1">
                   {t('welcome.email')}
                 </label>
                 <input
                   type="email"
                   value={gitAuthorEmail}
                   onChange={(e) => setGitAuthor(gitAuthorName, e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+                  className="w-full px-3 py-2 rounded-md border border-border bg-bg-main text-text-primary text-sm focus:outline-none focus:border-accent"
                 />
               </div>
             </div>
@@ -138,30 +140,30 @@ export function SettingsView({ onClose }: SettingsViewProps) {
 
           {/* Editor */}
           <section>
-            <h3 className="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
               {t('settings.editor')}
-            </h3>
+            </h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <label className="text-sm text-[var(--color-text-primary)]">
+                <label className="text-sm text-text-primary">
                   {t('settings.autoSave')}
                 </label>
                 <button
                   onClick={() => setAutoSave(!autoSave)}
-                  className={`w-10 h-5 rounded-full transition-colors relative ${
-                    autoSave ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border)]'
+                  className={`w-9 h-5 rounded-full transition-colors relative ${
+                    autoSave ? 'bg-accent' : 'bg-border'
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                      autoSave ? 'translate-x-5' : 'translate-x-0.5'
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      autoSave ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>
               </div>
 
               <div>
-                <label className="block text-sm text-[var(--color-text-primary)] mb-1.5">
+                <label className="block text-sm text-text-primary mb-1.5">
                   {t('settings.fontSize')}: {fontSize}px
                 </label>
                 <input
@@ -178,23 +180,23 @@ export function SettingsView({ onClose }: SettingsViewProps) {
 
           {/* Workspace */}
           <section>
-            <h3 className="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
               {t('settings.workspace')}
-            </h3>
+            </h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                <label className="block text-sm text-text-secondary mb-1">
                   {t('settings.workspacePath')}
                 </label>
                 <input
                   type="text"
                   value={activeWorkspace?.path ?? ''}
                   readOnly
-                  className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)] text-sm cursor-default"
+                  className="w-full px-3 py-2 rounded-md border border-border bg-bg-hover text-text-secondary text-sm cursor-default"
                 />
               </div>
               <div>
-                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                <label className="block text-sm text-text-secondary mb-1">
                   {t('settings.remoteUrl')}
                 </label>
                 <input
@@ -206,7 +208,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                     }
                   }}
                   placeholder="https://github.com/user/repo.git"
-                  className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+                  className="w-full px-3 py-2 rounded-md border border-border bg-bg-main text-text-primary text-sm focus:outline-none focus:border-accent"
                 />
               </div>
             </div>
@@ -214,12 +216,12 @@ export function SettingsView({ onClose }: SettingsViewProps) {
 
           {/* Git */}
           <section>
-            <h3 className="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
               {t('settings.git')}
-            </h3>
+            </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                <label className="block text-sm text-text-secondary mb-1">
                   {t('settings.gitToken')}
                 </label>
                 <input
@@ -227,33 +229,33 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                   value={gitToken}
                   onChange={(e) => setGitToken(e.target.value)}
                   placeholder={t('settings.gitTokenPlaceholder')}
-                  className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+                  className="w-full px-3 py-2 rounded-md border border-border bg-bg-main text-text-primary text-sm focus:outline-none focus:border-accent"
                 />
-                <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                <p className="text-xs text-text-secondary mt-1">
                   {t('settings.gitTokenHint')}
                 </p>
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="text-sm text-[var(--color-text-primary)]">
+                <label className="text-sm text-text-primary">
                   {t('settings.autoSync')}
                 </label>
                 <button
                   onClick={() => setAutoSync(!autoSync)}
-                  className={`w-10 h-5 rounded-full transition-colors relative ${
-                    autoSync ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border)]'
+                  className={`w-9 h-5 rounded-full transition-colors relative ${
+                    autoSync ? 'bg-accent' : 'bg-border'
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                      autoSync ? 'translate-x-5' : 'translate-x-0.5'
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      autoSync ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>
               </div>
 
               <div>
-                <label className="block text-sm text-[var(--color-text-primary)] mb-1.5">
+                <label className="block text-sm text-text-primary mb-1.5">
                   {t('settings.syncInterval')}
                 </label>
                 <div className="flex gap-2">
@@ -264,10 +266,10 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                       disabled={!autoSync}
                       className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                         syncInterval === interval
-                          ? 'border-[var(--color-accent)] bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
+                          ? 'border-accent bg-sidebar-selected text-accent'
                           : autoSync
-                            ? 'border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
-                            : 'border-[var(--color-border)] text-[var(--color-text-secondary)] opacity-50 cursor-not-allowed'
+                            ? 'border-border text-text-primary hover:bg-bg-hover'
+                            : 'border-border text-text-secondary opacity-50 cursor-not-allowed'
                       }`}
                     >
                       {t('settings.syncIntervalSeconds', { seconds: interval })}
@@ -275,79 +277,6 @@ export function SettingsView({ onClose }: SettingsViewProps) {
                   ))}
                 </div>
               </div>
-            </div>
-          </section>
-
-          {/* AI */}
-          <section>
-            <h3 className="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider mb-3">
-              {t('settings.ai')}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-[var(--color-text-primary)] mb-1.5">
-                  {t('settings.aiProvider')}
-                </label>
-                <div className="flex gap-2">
-                  {(['claude', 'openai', 'ollama'] as AiProvider[]).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setAiProvider(p)}
-                      className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                        aiProvider === p
-                          ? 'border-[var(--color-accent)] bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
-                          : 'border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
-                      }`}
-                    >
-                      {p === 'claude' ? 'Claude' : p === 'openai' ? 'OpenAI' : 'Ollama'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {aiProvider !== 'ollama' && (
-                <div>
-                  <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
-                    {t('settings.aiApiKey')}
-                  </label>
-                  <input
-                    type="password"
-                    value={aiApiKey}
-                    onChange={(e) => setAiApiKey(e.target.value)}
-                    placeholder={t('settings.aiApiKeyPlaceholder')}
-                    className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
-                  />
-                </div>
-              )}
-
-              {aiProvider === 'ollama' && (
-                <>
-                  <div>
-                    <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
-                      {t('settings.ollamaModel')}
-                    </label>
-                    <input
-                      type="text"
-                      value={ollamaModel}
-                      onChange={(e) => setOllamaModel(e.target.value)}
-                      placeholder="llama3.2"
-                      className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
-                      {t('settings.ollamaUrl')}
-                    </label>
-                    <input
-                      type="text"
-                      value={ollamaUrl}
-                      onChange={(e) => setOllamaUrl(e.target.value)}
-                      placeholder="http://localhost:11434"
-                      className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-main)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
-                    />
-                  </div>
-                </>
-              )}
             </div>
           </section>
         </div>

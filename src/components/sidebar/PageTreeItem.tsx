@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useCallback, memo } from 'react';
+import { useClickOutside } from '../../hooks/useClickOutside';
 import { useTranslation } from 'react-i18next';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { ChevronRight, Folder, FileText, MoreVertical } from 'lucide-react';
 import type { TreeNode } from '../../core/models/TreeNode';
 
 interface PageTreeItemProps {
@@ -11,14 +11,9 @@ interface PageTreeItemProps {
   onSelect: (id: string) => void;
   onDelete: (id: string, title: string, childCount: number) => void;
   onRename: (id: string, currentTitle: string) => void;
-  onMovePage: (id: string, newParent: string | null, newOrder: number) => void;
-  /** ID of the item currently being dragged (passed from DndContext) */
-  activeId: string | null;
-  /** ID of the item currently being hovered over for reparenting */
-  overItemId: string | null;
 }
 
-export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRename, onMovePage, activeId, overItemId }: PageTreeItemProps) {
+export const PageTreeItem = memo(function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRename }: PageTreeItemProps) {
   const { t } = useTranslation();
   const storageKey = `tree-expanded-${node.meta.id}`;
   const [expanded, setExpanded] = useState(() => {
@@ -33,37 +28,13 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
       return next;
     });
   }, [storageKey]);
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const hasChildren = node.children.length > 0;
   const isSelected = node.meta.id === selectedId;
-  const isDraggedItem = activeId === node.meta.id;
-  const isDropTarget = overItemId === node.meta.id && activeId !== node.meta.id;
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: node.meta.id,
-    data: {
-      type: 'page',
-      node,
-      level,
-      parentId: node.meta.parent,
-    },
-  });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  };
+  const isFolder = node.meta.tags?.includes('__folder');
 
   const countDescendants = useCallback((treeNode: TreeNode): number => {
     let count = treeNode.children.length;
@@ -73,17 +44,8 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
     return count;
   }, []);
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen]);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  useClickOutside(menuRef, menuOpen, closeMenu);
 
   const handleMenuToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -104,86 +66,68 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div>
       <div
-        className={`relative group ${isDropTarget ? 'ring-2 ring-[var(--color-accent)] ring-inset rounded-md' : ''}`}
+        className="relative group"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => { setHovered(false); if (!menuOpen) setMenuOpen(false); }}
       >
         <button
-          onClick={() => onSelect(node.meta.id)}
-          className={`w-full flex items-center gap-1 px-2 py-1.5 text-sm rounded-md transition-colors text-left
+          onClick={() => isFolder ? toggleExpanded() : onSelect(node.meta.id)}
+          className={`w-full flex items-center gap-1.5 py-[5px] text-[13px] rounded transition-colors text-left
             ${isSelected
-              ? 'bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
-              : 'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
+              ? 'bg-sidebar-item-selected text-sidebar-accent font-medium'
+              : 'text-sidebar-text hover:bg-sidebar-hover'
             }`}
-          style={{ paddingLeft: `${level * 16 + 8}px` }}
+          style={{ paddingLeft: `${level * 12 + 8}px`, paddingRight: '28px' }}
         >
-          {/* Drag handle - visible on hover */}
-          <span
-            ref={setActivatorNodeRef}
-            {...listeners}
-            className={`w-4 h-4 flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing transition-opacity ${
-              hovered || isDragging ? 'opacity-100' : 'opacity-0'
-            }`}
-            onClick={(e) => e.stopPropagation()}
-            title={t('common.move')}
-          >
-            <svg className="w-3 h-3 text-[var(--color-text-secondary)]" viewBox="0 0 16 16" fill="currentColor">
-              <circle cx="5" cy="3" r="1.5" />
-              <circle cx="11" cy="3" r="1.5" />
-              <circle cx="5" cy="8" r="1.5" />
-              <circle cx="11" cy="8" r="1.5" />
-              <circle cx="5" cy="13" r="1.5" />
-              <circle cx="11" cy="13" r="1.5" />
-            </svg>
-          </span>
-
+          {/* Expand/collapse chevron */}
           {hasChildren ? (
             <span
               onClick={(e) => { e.stopPropagation(); toggleExpanded(); }}
-              className="w-4 h-4 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] shrink-0"
+              className="w-4 h-4 flex items-center justify-center text-sidebar-text-muted hover:text-sidebar-text shrink-0"
             >
-              {expanded ? '\u25BC' : '\u25B6'}
+              <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
             </span>
           ) : (
-            <span className="w-4 h-4 flex items-center justify-center text-[var(--color-text-secondary)] shrink-0">
-              {'\u25CB'}
-            </span>
+            <span className="w-4 h-4 shrink-0" />
           )}
+
+          {/* Icon: folder or document */}
+          {isFolder || hasChildren ? (
+            <Folder className="w-4 h-4 shrink-0 text-sidebar-text-muted" />
+          ) : (
+            <FileText className="w-4 h-4 shrink-0 text-sidebar-text-muted" />
+          )}
+
           <span className="truncate flex-1">{node.meta.title || t('editor.untitled')}</span>
         </button>
 
-        {/* "..." menu button - visible on hover */}
-        {(hovered || menuOpen) && !isDragging && (
+        {/* "..." menu button */}
+        {(hovered || menuOpen) && (
           <button
             onClick={handleMenuToggle}
-            className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
-            title={t('common.more', 'More')}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-sidebar-text-muted hover:text-sidebar-text hover:bg-sidebar-hover transition-colors"
           >
-            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-              <circle cx="8" cy="3" r="1.5" />
-              <circle cx="8" cy="8" r="1.5" />
-              <circle cx="8" cy="13" r="1.5" />
-            </svg>
+            <MoreVertical className="w-3.5 h-3.5" />
           </button>
         )}
 
-        {/* Context menu dropdown */}
+        {/* Context menu */}
         {menuOpen && (
           <div
             ref={menuRef}
-            className="absolute right-0 top-full z-50 mt-0.5 w-36 rounded-md shadow-lg border border-[var(--color-border)] bg-[var(--color-bg-main)] py-1"
+            className="absolute right-0 top-full z-50 mt-0.5 w-36 rounded-lg shadow-lg border border-border bg-bg-main py-1"
           >
             <button
               onClick={handleRename}
-              className="w-full text-left px-3 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="w-full text-left px-3 py-1.5 text-sm text-text-primary hover:bg-bg-hover transition-colors"
             >
               {t('common.rename')}
             </button>
             <button
               onClick={handleDelete}
-              className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="w-full text-left px-3 py-1.5 text-sm text-danger hover:bg-bg-hover transition-colors"
             >
               {t('common.delete')}
             </button>
@@ -191,7 +135,7 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
         )}
       </div>
 
-      {hasChildren && expanded && !isDraggedItem && (
+      {hasChildren && expanded && (
         <div>
           {node.children.map((child) => (
             <PageTreeItem
@@ -202,13 +146,10 @@ export function PageTreeItem({ node, level, selectedId, onSelect, onDelete, onRe
               onSelect={onSelect}
               onDelete={onDelete}
               onRename={onRename}
-              onMovePage={onMovePage}
-              activeId={activeId}
-              overItemId={overItemId}
             />
           ))}
         </div>
       )}
     </div>
   );
-}
+});

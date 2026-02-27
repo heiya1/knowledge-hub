@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Editor } from '@tiptap/react';
 import { useDocumentStore } from '../../../stores/documentStore';
 
 interface WikiLinkSuggestionProps {
   editor: Editor;
-  onNavigate: (id: string) => void;
 }
 
 interface SuggestionItem {
@@ -13,9 +13,9 @@ interface SuggestionItem {
   breadcrumb: string;
 }
 
-export function WikiLinkSuggestion({ editor, onNavigate: _onNavigate }: WikiLinkSuggestionProps) {
+export function WikiLinkSuggestion({ editor }: WikiLinkSuggestionProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const [, setQuery] = useState('');
   const [items, setItems] = useState<SuggestionItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
@@ -77,7 +77,6 @@ export function WikiLinkSuggestion({ editor, onNavigate: _onNavigate }: WikiLink
       const match = textBefore.match(/\[\[([^\]]*?)$/);
       if (match) {
         const searchQuery = match[1];
-        setQuery(searchQuery);
         setItems(buildSuggestions(searchQuery));
         setSelectedIndex(0);
         setIsOpen(true);
@@ -158,7 +157,7 @@ export function WikiLinkSuggestion({ editor, onNavigate: _onNavigate }: WikiLink
   return (
     <div
       ref={popupRef}
-      className="absolute z-50 bg-[var(--color-bg-main)] border border-[var(--color-border)] rounded-lg shadow-lg overflow-hidden"
+      className="absolute z-50 bg-bg-main border border-border rounded-lg shadow-lg overflow-hidden"
       style={{
         top: position.top,
         left: position.left,
@@ -167,8 +166,8 @@ export function WikiLinkSuggestion({ editor, onNavigate: _onNavigate }: WikiLink
       }}
     >
       {items.length === 0 ? (
-        <div className="px-3 py-2 text-sm text-[var(--color-text-secondary)]">
-          No pages found
+        <div className="px-3 py-2 text-sm text-text-secondary">
+          {t('editor.wikiLink.noPages')}
         </div>
       ) : (
         items.map((item, index) => (
@@ -177,13 +176,13 @@ export function WikiLinkSuggestion({ editor, onNavigate: _onNavigate }: WikiLink
             onClick={() => selectItem(item)}
             className={`w-full text-left px-3 py-2 text-sm transition-colors ${
               index === selectedIndex
-                ? 'bg-[var(--color-sidebar-selected)] text-[var(--color-accent)]'
-                : 'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
+                ? 'bg-sidebar-selected text-accent'
+                : 'text-text-primary hover:bg-bg-hover'
             }`}
           >
             <div className="font-medium truncate">{item.title}</div>
             {item.breadcrumb && (
-              <div className="text-xs text-[var(--color-text-secondary)] truncate">
+              <div className="text-xs text-text-secondary truncate">
                 {item.breadcrumb}
               </div>
             )}

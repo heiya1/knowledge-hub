@@ -7,13 +7,12 @@ interface DocumentState {
   tree: TreeNode[];
   currentDocumentId: string | null;
   currentDocument: Document | null;
-  loading: boolean;
+  backlinkIndex: Map<string, string[]>;
   setDocuments: (docs: DocumentMeta[]) => void;
   setTree: (tree: TreeNode[]) => void;
   setCurrentDocumentId: (id: string | null) => void;
   setCurrentDocument: (doc: Document | null) => void;
-  setLoading: (loading: boolean) => void;
-  updateDocumentMeta: (id: string, meta: Partial<DocumentMeta>) => void;
+  setBacklinkIndex: (index: Map<string, string[]>) => void;
 }
 
 export const useDocumentStore = create<DocumentState>((set) => ({
@@ -21,15 +20,10 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   tree: [],
   currentDocumentId: null,
   currentDocument: null,
-  loading: false,
+  backlinkIndex: new Map(),
   setDocuments: (documents) => set({ documents }),
   setTree: (tree) => set({ tree }),
   setCurrentDocumentId: (id) => set({ currentDocumentId: id }),
   setCurrentDocument: (doc) => set({ currentDocument: doc }),
-  setLoading: (loading) => set({ loading }),
-  updateDocumentMeta: (id, meta) => set((state) => ({
-    documents: state.documents.map((d) =>
-      d.id === id ? { ...d, ...meta } : d
-    ),
-  })),
+  setBacklinkIndex: (backlinkIndex) => set({ backlinkIndex }),
 }));

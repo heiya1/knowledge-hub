@@ -5,10 +5,7 @@ import type { DocumentMeta } from '../../src/core/models/Document';
 function makeMeta(overrides: Partial<DocumentMeta> & { id: string; title: string }): DocumentMeta {
   return {
     parent: null,
-    order: 0,
     tags: [],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }
@@ -18,8 +15,8 @@ describe('TreeService', () => {
 
   it('builds flat list into tree', () => {
     const docs: DocumentMeta[] = [
-      makeMeta({ id: 'a', title: 'Page A', order: 0 }),
-      makeMeta({ id: 'b', title: 'Page B', order: 1 }),
+      makeMeta({ id: 'a', title: 'Page A' }),
+      makeMeta({ id: 'b', title: 'Page B' }),
     ];
 
     const tree = service.buildTree(docs);
@@ -30,10 +27,10 @@ describe('TreeService', () => {
 
   it('builds nested hierarchy', () => {
     const docs: DocumentMeta[] = [
-      makeMeta({ id: 'root', title: 'Root', order: 0 }),
-      makeMeta({ id: 'child1', title: 'Child 1', parent: 'root', order: 0 }),
-      makeMeta({ id: 'child2', title: 'Child 2', parent: 'root', order: 1 }),
-      makeMeta({ id: 'grandchild', title: 'Grandchild', parent: 'child1', order: 0 }),
+      makeMeta({ id: 'root', title: 'Root' }),
+      makeMeta({ id: 'child1', title: 'Child 1', parent: 'root' }),
+      makeMeta({ id: 'child2', title: 'Child 2', parent: 'root' }),
+      makeMeta({ id: 'grandchild', title: 'Grandchild', parent: 'child1' }),
     ];
 
     const tree = service.buildTree(docs);
@@ -44,22 +41,24 @@ describe('TreeService', () => {
     expect(tree[0].children[0].children[0].meta.id).toBe('grandchild');
   });
 
-  it('sorts children by order', () => {
+  it('sorts children by title (folders first)', () => {
     const docs: DocumentMeta[] = [
-      makeMeta({ id: 'root', title: 'Root', order: 0 }),
-      makeMeta({ id: 'c', title: 'C', parent: 'root', order: 2 }),
-      makeMeta({ id: 'a', title: 'A', parent: 'root', order: 0 }),
-      makeMeta({ id: 'b', title: 'B', parent: 'root', order: 1 }),
+      makeMeta({ id: 'root', title: 'Root' }),
+      makeMeta({ id: 'c', title: 'C', parent: 'root' }),
+      makeMeta({ id: 'a', title: 'A', parent: 'root' }),
+      makeMeta({ id: 'b', title: 'B', parent: 'root' }),
+      makeMeta({ id: 'folder', title: '00-folder', parent: 'root', tags: ['__folder'] }),
     ];
 
     const tree = service.buildTree(docs);
-    expect(tree[0].children.map((n) => n.meta.id)).toEqual(['a', 'b', 'c']);
+    const ids = tree[0].children.map((n) => n.meta.id);
+    expect(ids).toEqual(['folder', 'a', 'b', 'c']);
   });
 
   it('finds a node in the tree', () => {
     const docs: DocumentMeta[] = [
-      makeMeta({ id: 'root', title: 'Root', order: 0 }),
-      makeMeta({ id: 'child', title: 'Child', parent: 'root', order: 0 }),
+      makeMeta({ id: 'root', title: 'Root' }),
+      makeMeta({ id: 'child', title: 'Child', parent: 'root' }),
     ];
 
     const tree = service.buildTree(docs);
@@ -70,9 +69,9 @@ describe('TreeService', () => {
 
   it('gets ancestors', () => {
     const docs: DocumentMeta[] = [
-      makeMeta({ id: 'root', title: 'Root', order: 0 }),
-      makeMeta({ id: 'child', title: 'Child', parent: 'root', order: 0 }),
-      makeMeta({ id: 'grandchild', title: 'Grandchild', parent: 'child', order: 0 }),
+      makeMeta({ id: 'root', title: 'Root' }),
+      makeMeta({ id: 'child', title: 'Child', parent: 'root' }),
+      makeMeta({ id: 'grandchild', title: 'Grandchild', parent: 'child' }),
     ];
 
     const ancestors = service.getAncestors(docs, 'grandchild');
@@ -83,7 +82,7 @@ describe('TreeService', () => {
 
   it('orphan child goes to root', () => {
     const docs: DocumentMeta[] = [
-      makeMeta({ id: 'orphan', title: 'Orphan', parent: 'nonexistent', order: 0 }),
+      makeMeta({ id: 'orphan', title: 'Orphan', parent: 'nonexistent' }),
     ];
 
     const tree = service.buildTree(docs);

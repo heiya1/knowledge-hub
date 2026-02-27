@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Check } from 'lucide-react';
 import { diffLines } from 'diff';
 import type { GitLogEntry } from '../../core/interfaces/IGitService';
 import { getContainer } from '../../infrastructure/container';
@@ -119,25 +120,25 @@ export function HistoryPanel({ isOpen, onClose, entries, pageTitle, filepath }: 
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]" onClick={handleClose}>
       <div className="absolute inset-0 bg-black/50" />
       <div
-        className="relative w-full max-w-2xl bg-[var(--color-bg-main)] rounded-xl shadow-2xl border border-[var(--color-border)] overflow-hidden"
+        className="relative w-full max-w-2xl bg-bg-main rounded-xl shadow-2xl border border-border overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h2 className="text-lg font-semibold text-text-primary">
             {diffResult ? t('git.diffView') : t('git.history')}{pageTitle ? `: ${pageTitle}` : ''}
           </h2>
           <div className="flex items-center gap-2">
             {diffResult && (
               <button
                 onClick={handleBackToList}
-                className="text-sm text-[var(--color-accent)] hover:underline transition-colors"
+                className="text-sm text-accent hover:underline transition-colors"
               >
                 {t('git.history')}
               </button>
             )}
             <button
               onClick={handleClose}
-              className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="text-text-secondary hover:text-text-primary transition-colors"
             >
               {t('common.close')}
             </button>
@@ -155,7 +156,7 @@ export function HistoryPanel({ isOpen, onClose, entries, pageTitle, filepath }: 
                     ? 'bg-green-500/15 text-green-700 dark:text-green-400'
                     : line.type === 'removed'
                       ? 'bg-red-500/15 text-red-700 dark:text-red-400'
-                      : 'text-[var(--color-text-primary)]'
+                      : 'text-text-primary'
                 }`}
               >
                 <span className="inline-block w-4 select-none opacity-50">
@@ -169,8 +170,8 @@ export function HistoryPanel({ isOpen, onClose, entries, pageTitle, filepath }: 
           <>
             {/* Compare bar */}
             {filepath && (
-              <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-sidebar)]">
-                <span className="text-xs text-[var(--color-text-secondary)]">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-bg-sidebar">
+                <span className="text-xs text-text-secondary">
                   {selectedOids.length === 2
                     ? `${selectedOids.map((o) => o.slice(0, 7)).join(' / ')}`
                     : t('git.selectToCompare')}
@@ -178,7 +179,7 @@ export function HistoryPanel({ isOpen, onClose, entries, pageTitle, filepath }: 
                 <button
                   onClick={handleCompare}
                   disabled={selectedOids.length !== 2 || diffLoading}
-                  className="px-3 py-1 text-xs font-medium rounded bg-[var(--color-accent)] text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+                  className="px-3 py-1 text-xs font-medium rounded bg-accent text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
                 >
                   {diffLoading ? '...' : t('git.compare')}
                 </button>
@@ -186,7 +187,7 @@ export function HistoryPanel({ isOpen, onClose, entries, pageTitle, filepath }: 
             )}
 
             {diffError && (
-              <div className="px-4 py-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-b border-[var(--color-border)]">
+              <div className="px-4 py-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-b border-border">
                 {diffError}
               </div>
             )}
@@ -194,7 +195,7 @@ export function HistoryPanel({ isOpen, onClose, entries, pageTitle, filepath }: 
             {/* Commit list */}
             <div className="max-h-[400px] overflow-y-auto">
               {entries.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-[var(--color-text-secondary)]">
+                <div className="px-4 py-8 text-center text-sm text-text-secondary">
                   {t('git.noHistory')}
                 </div>
               ) : (
@@ -203,8 +204,8 @@ export function HistoryPanel({ isOpen, onClose, entries, pageTitle, filepath }: 
                   return (
                     <div
                       key={entry.oid}
-                      className={`px-4 py-3 border-b border-[var(--color-border)] last:border-b-0 hover:bg-[var(--color-bg-hover)] transition-colors cursor-pointer ${
-                        isSelected ? 'bg-[var(--color-accent)]/10 border-l-2 border-l-[var(--color-accent)]' : ''
+                      className={`px-4 py-3 border-b border-border last:border-b-0 hover:bg-bg-hover transition-colors cursor-pointer ${
+                        isSelected ? 'bg-accent/10 border-l-2 border-l-accent' : ''
                       }`}
                       onClick={() => filepath && handleToggleSelect(entry.oid)}
                     >
@@ -214,29 +215,27 @@ export function HistoryPanel({ isOpen, onClose, entries, pageTitle, filepath }: 
                             <div
                               className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
                                 isSelected
-                                  ? 'bg-[var(--color-accent)] border-[var(--color-accent)]'
-                                  : 'border-[var(--color-border)]'
+                                  ? 'bg-accent border-accent'
+                                  : 'border-border'
                               }`}
                             >
                               {isSelected && (
-                                <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M2 5l2 2 4-4" />
-                                </svg>
+                                <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
                               )}
                             </div>
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                          <div className="text-sm font-medium text-text-primary truncate">
                             {entry.message}
                           </div>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-[var(--color-text-secondary)]">
+                          <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
                             <span>{entry.author.name}</span>
                             <span>&middot;</span>
                             <span>{formatDate(entry.author.timestamp)}</span>
                           </div>
                         </div>
-                        <span className="text-xs font-mono text-[var(--color-text-secondary)] shrink-0">
+                        <span className="text-xs font-mono text-text-secondary shrink-0">
                           {entry.oid.slice(0, 7)}
                         </span>
                       </div>

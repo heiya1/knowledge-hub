@@ -2,62 +2,136 @@ import { describe, it, expect } from 'vitest';
 import { parseFrontmatter, stringifyFrontmatter } from '../../src/core/utils/frontmatter';
 
 describe('parseFrontmatter', () => {
-  it('parses valid frontmatter', () => {
+  it('parses frontmatter tags', () => {
     const raw = `---
-title: "Test Page"
-parent: "abc123"
-order: 2
-tags: ["draft"]
-createdAt: "2026-02-25T10:00:00.000Z"
-updatedAt: "2026-02-25T12:00:00.000Z"
+tags: ["draft", "design"]
 ---
 Hello world`;
 
     const doc = parseFrontmatter(raw);
-    expect(doc.title).toBe('Test Page');
-    expect(doc.parent).toBe('abc123');
-    expect(doc.order).toBe(2);
-    expect(doc.tags).toEqual(['draft']);
+    expect(doc.tags).toEqual(['draft', 'design']);
     expect(doc.body).toBe('Hello world');
+    expect(doc.title).toBe(''); // title derived from filename, not frontmatter
   });
 
-  it('handles missing optional fields', () => {
+  it('handles empty frontmatter (no tags)', () => {
     const raw = `---
-title: "Minimal"
+title: "Legacy Title"
 ---
 Body text`;
 
     const doc = parseFrontmatter(raw);
-    expect(doc.title).toBe('Minimal');
-    expect(doc.parent).toBeNull();
-    expect(doc.order).toBe(0);
+    // title from frontmatter is ignored; derived from filename externally
+    expect(doc.title).toBe('');
     expect(doc.tags).toEqual([]);
     expect(doc.body).toBe('Body text');
   });
 
-  it('throws on invalid format', () => {
-    expect(() => parseFrontmatter('no frontmatter here')).toThrow();
+  it('handles content without frontmatter', () => {
+    const doc = parseFrontmatter('no frontmatter here');
+    expect(doc.title).toBe('');
+    expect(doc.parent).toBeNull();
+    expect(doc.body).toBe('no frontmatter here');
+    expect(doc.hasFrontmatter).toBe(false);
+  });
+
+  it('preserves all existing fields on stringify', () => {
+    const raw = `---
+title: "Legacy"
+parent: "old-parent"
+order: 1
+tags: ["important"]
+createdAt: "2026-01-01T00:00:00.000Z"
+updatedAt: "2026-01-01T00:00:00.000Z"
+---
+content`;
+
+    const doc = parseFrontmatter(raw);
+    const str = stringifyFrontmatter(doc);
+    // All original fields preserved as-is
+    expect(str).toContain('title:');
+    expect(str).toContain('parent:');
+    expect(str).toContain('order:');
+    expect(str).toContain('tags:');
+    expect(str).toContain('important');
   });
 });
 
 describe('stringifyFrontmatter', () => {
-  it('round-trips correctly', () => {
+  it('outputs pure markdown when no tags', () => {
     const doc = {
-      id: 'test-id',
-      title: 'Round Trip',
+      id: 'test',
+      title: 'Test',
       parent: null,
-      order: 0,
-      tags: ['test'],
-      createdAt: '2026-02-25T10:00:00.000Z',
-      updatedAt: '2026-02-25T12:00:00.000Z',
+      tags: [],
+      body: '# Hello\n\nWorld',
+    };
+
+    const str = stringifyFrontmatter(doc);
+    // No frontmatter block at all
+    expect(str).toBe('# Hello\n\nWorld');
+    expect(str).not.toContain('---');
+  });
+
+  it('writes frontmatter only for tags', () => {
+    const doc = {
+      id: 'test',
+      title: 'Test',
+      parent: null,
+      tags: ['draft'],
+      body: '# Hello',
+    };
+
+    const str = stringifyFrontmatter(doc);
+    expect(str).toContain('---');
+    expect(str).toContain('tags:');
+    expect(str).toContain('draft');
+    expect(str).not.toContain('title:');
+    expect(str).toContain('# Hello');
+  });
+
+  it('round-trips tags correctly', () => {
+    const doc = {
+      id: 'test',
+      title: 'Test',
+      parent: null,
+      tags: ['test', 'important'],
       body: '# Hello\n\nWorld',
     };
 
     const str = stringifyFrontmatter(doc);
     const parsed = parseFrontmatter(str);
-    expect(parsed.title).toBe('Round Trip');
-    expect(parsed.parent).toBeNull();
-    expect(parsed.tags).toEqual(['test']);
+    expect(parsed.tags).toEqual(['test', 'important']);
     expect(parsed.body).toBe('# Hello\n\nWorld');
+  });
+
+  it('preserves all existing fields and updates tags', () => {
+    const raw = `---
+author: "John"
+category: "docs"
+tags: ["draft"]
+---
+content`;
+
+    const doc = parseFrontmatter(raw);
+    doc.tags = ['draft', 'review'];
+    const str = stringifyFrontmatter(doc);
+    expect(str).toContain('author: John');
+    expect(str).toContain('category: docs');
+    expect(str).toContain('review');
+  });
+
+  it('preserves all fields even without tags', () => {
+    const raw = `---
+author: "Jane"
+title: "Old"
+---
+content`;
+
+    const doc = parseFrontmatter(raw);
+    const str = stringifyFrontmatter(doc);
+    expect(str).toContain('---');
+    expect(str).toContain('author: Jane');
+    expect(str).toContain('title: Old');
   });
 });

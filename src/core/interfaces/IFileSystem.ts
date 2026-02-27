@@ -7,11 +7,17 @@ export interface IFileSystem {
   removeFile(path: string): Promise<void>;
   removeDir(path: string, options?: { recursive?: boolean }): Promise<void>;
   rename(oldPath: string, newPath: string): Promise<void>;
-  copyFile(src: string, dest: string): Promise<void>;
+  stat(path: string): Promise<FileStat>;
 }
 
 export interface DirEntry {
   name: string;
   isDirectory: boolean;
   isFile: boolean;
+}
+
+export interface FileStat {
+  size: number;
+  mtime: Date | null;
+  birthtime: Date | null;
 }

@@ -5,10 +5,7 @@ import type { DocumentMeta } from '../../src/core/models/Document';
 function makeMeta(overrides: Partial<DocumentMeta> & { id: string; title: string }): DocumentMeta {
   return {
     parent: null,
-    order: 0,
     tags: [],
-    createdAt: '2026-02-25T10:00:00.000Z',
-    updatedAt: '2026-02-25T10:00:00.000Z',
     ...overrides,
   };
 }
@@ -80,38 +77,6 @@ describe('SearchService', () => {
     const newResults = service.search('New Document');
     expect(newResults.length).toBeGreaterThan(0);
     expect(newResults[0].id).toBe('10');
-  });
-
-  it('addDocument adds a searchable document', () => {
-    const newDoc = makeMeta({ id: '5', title: 'Troubleshooting' });
-    service.addDocument(newDoc);
-
-    const results = service.search('Troubleshooting');
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0].id).toBe('5');
-  });
-
-  it('addDocument updates an existing document', () => {
-    const updated = makeMeta({ id: '1', title: 'Quick Start Guide' });
-    service.addDocument(updated);
-
-    const oldResults = service.search('Getting Started');
-    expect(oldResults).toHaveLength(0);
-
-    const newResults = service.search('Quick Start');
-    expect(newResults.length).toBeGreaterThan(0);
-    expect(newResults[0].id).toBe('1');
-  });
-
-  it('removeDocument removes a document from the index', () => {
-    service.removeDocument('2');
-
-    const results = service.search('API Reference');
-    expect(results).toHaveLength(0);
-  });
-
-  it('removeDocument does not throw for non-existent id', () => {
-    expect(() => service.removeDocument('nonexistent')).not.toThrow();
   });
 
   it('results include score and match info', () => {

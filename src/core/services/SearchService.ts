@@ -52,13 +52,4 @@ export class SearchService {
     }));
   }
 
-  addDocument(doc: DocumentMeta): void {
-    // Remove existing first to avoid duplicate
-    try { this.index.discard(doc.id); } catch { /* not found */ }
-    this.index.add({ id: doc.id, title: doc.title, tags: doc.tags.join(' ') });
-  }
-
-  removeDocument(id: string): void {
-    try { this.index.discard(id); } catch { /* not found */ }
-  }
 }
